@@ -1,8 +1,13 @@
-import starlight from "@astrojs/starlight";
 // @ts-check
 import { defineConfig } from "astro/config";
+import starlight from "@astrojs/starlight";
 
 export default defineConfig({
+  vite: {
+    ssr: {
+      noExternal: ["zod"],
+    },
+  },
   site: "https://kodalabs-io.github.io",
   base: "/eqo",
   integrations: [
