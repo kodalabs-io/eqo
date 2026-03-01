@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://kodalabs-io.github.io/eqo">
-    <img src="https://raw.githubusercontent.com/kodalabs-io/eqo/main/docs/public/banner.png" alt="eqo - RGAA accessibility engine" width="100%" style="max-width: 800px;">
+    <img src="https://github.com/kodalabs-io/eqo/blob/main/docs/public/banner.png?raw=true" alt="eqo - RGAA accessibility engine" width="100%" style="max-width: 800px;">
   </a>
 
   <h1>eqo</h1>
