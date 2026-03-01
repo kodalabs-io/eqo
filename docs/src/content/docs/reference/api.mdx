@@ -1,0 +1,577 @@
+---
+title: Programmatic API
+description: Complete reference for the @kodalabs-io/eqo programmatic API — all exported functions, types, and usage examples.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+`@kodalabs-io/eqo` exposes a full programmatic API for use as a library in your own scripts, custom CI integrations, or tooling. All exports are ESM and fully typed.
+
+```typescript
+import { analyze, loadConfig, writeReports } from "@kodalabs-io/eqo";
+```
+
+---
+
+## Core functions
+
+### `analyze(config, options?)`
+
+Run the full RGAA v4.1.2 analysis (static + runtime, or either phase alone) and return the complete report.
+
+```typescript
+function analyze(
+  config:   KodaRGAAConfig,
+  options?: {
+    staticOnly?:  boolean;
+    runtimeOnly?: boolean;
+    projectRoot?: string;   // defaults to process.cwd()
+    signal?:      AbortSignal;
+  }
+): Promise<RGAAReport>
+```
+
+**Example:**
+
+```typescript
+import { analyze, loadConfig } from "@kodalabs-io/eqo";
+
+const config = await loadConfig();
+const report = await analyze(config);
+
+const pct = Math.round(report.summary.complianceRate * 100);
+console.log(`Compliance: ${pct}%`);
+console.log(`Issues: ${report.issues.length}`);
+```
+
+**Static-only (no browser):**
+
+```typescript
+const report = await analyze(config, { staticOnly: true });
+```
+
+**With abort signal (graceful cancellation):**
+
+```typescript
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 30_000); // 30-second timeout
+
+const report = await analyze(config, { signal: controller.signal });
+```
+
+---
+
+### `loadConfig(cwd?, configPath?)`
+
+Load and validate the Eqo configuration file. Searches `cwd` for `rgaa.config.ts/js/mjs/json` by default, or loads the file at `configPath` if provided.
+
+```typescript
+function loadConfig(
+  cwd?:        string,   // defaults to process.cwd()
+  configPath?: string    // explicit path to config file
+): Promise<KodaRGAAConfig>
+```
+
+Throws `ConfigError` if the file is not found or fails schema validation.
+
+**Example:**
+
+```typescript
+import { loadConfig, ConfigError } from "@kodalabs-io/eqo";
+
+try {
+  const config = await loadConfig(process.cwd(), "./custom.config.ts");
+  console.log(`Project: ${config.projectName}`);
+} catch (err) {
+  if (err instanceof ConfigError) {
+    console.error("Config error:", err.message);
+  }
+  process.exit(1);
+}
+```
+
+---
+
+### `defineConfig(config)`
+
+A zero-overhead identity function that returns its argument unchanged. Its only purpose is to enable TypeScript inference on `KodaRGAAConfig` in config files.
+
+```typescript
+function defineConfig(config: KodaRGAAConfig): KodaRGAAConfig
+```
+
+```typescript
+// rgaa.config.ts
+import { defineConfig } from "@kodalabs-io/eqo";
+
+export default defineConfig({
+  baseUrl: "http://localhost:3000",
+  // TypeScript will catch type errors and provide autocompletion here
+});
+```
+
+---
+
+### `writeReports(report, outputs)`
+
+Write the analysis report in all configured output formats. Returns the list of file paths that were successfully written.
+
+```typescript
+function writeReports(
+  report:  RGAAReport,
+  outputs: OutputConfig[]
+): Promise<string[]>
+```
+
+**Example:**
+
+```typescript
+import { analyze, loadConfig, writeReports } from "@kodalabs-io/eqo";
+
+const config = await loadConfig();
+const report = await analyze(config);
+
+const written = await writeReports(report, config.output);
+for (const path of written) {
+  console.log(`Written: ${path}`);
+}
+```
+
+Individual format writers are also exported for granular control:
+
+```typescript
+import {
+  writeJsonReport,
+  writeHtmlReport,
+  writeSarifReport,
+  writeMarkdownReport,
+  writeJunitReport,
+} from "@kodalabs-io/eqo";
+
+// Write only the JSON report to a custom path
+await writeJsonReport(report, "./custom-output/report.json", { minify: true });
+```
+
+---
+
+### `printReport(report)`
+
+Print the compliance summary to `stdout` in the same format as the CLI.
+
+```typescript
+function printReport(report: RGAAReport): void
+```
+
+---
+
+### `runStaticAnalysis(config, options?)`
+
+Run only the static (Babel AST) analysis phase and return its issues.
+
+```typescript
+function runStaticAnalysis(
+  config:  KodaRGAAConfig,
+  options?: { projectRoot?: string; signal?: AbortSignal }
+): Promise<RGAAIssue[]>
+```
+
+---
+
+### `runRuntimeAnalysis(config, options?)`
+
+Run only the runtime (Playwright + axe-core) analysis phase and return its issues.
+
+```typescript
+function runRuntimeAnalysis(
+  config:  KodaRGAAConfig,
+  options?: { signal?: AbortSignal }
+): Promise<RGAAIssue[]>
+```
+
+---
+
+### `buildReport(config, issues, pages?)`
+
+Assemble a `RGAAReport` from a flat array of issues. Useful when you have collected issues through custom analysis logic and want to produce a report in any of Eqo's output formats.
+
+```typescript
+function buildReport(
+  config: KodaRGAAConfig,
+  issues: RGAAIssue[],
+  pages?:  PageResult[]
+): RGAAReport
+```
+
+---
+
+## Configuration utilities
+
+### `resolveConfigPath(cwd, configPath?)`
+
+Resolve the absolute path to the config file using Eqo's default search order (`ts` → `js` → `mjs` → `json`).
+
+```typescript
+function resolveConfigPath(
+  cwd:         string,
+  configPath?: string
+): Promise<string | null>
+```
+
+### `generateDefaultConfig(projectName?)`
+
+Generate the default configuration string (the same content as `eqo init`).
+
+```typescript
+function generateDefaultConfig(projectName?: string): string
+```
+
+---
+
+## Criteria utilities
+
+### `ALL_CRITERIA`
+
+The complete RGAA v4.1.2 criteria catalog — an array of 106 `CriterionDefinition` objects.
+
+```typescript
+import { ALL_CRITERIA } from "@kodalabs-io/eqo";
+
+console.log(`Total criteria: ${ALL_CRITERIA.length}`); // 106
+
+const manualCriteria = ALL_CRITERIA.filter(
+  (c) => c.automationLevel === "manual"
+);
+console.log(`Manual criteria: ${manualCriteria.length}`);
+```
+
+### `THEMES`
+
+Array of `ThemeDefinition` objects, one per RGAA theme (13 total).
+
+### `CRITERIA_BY_ID`
+
+A `Map<string, CriterionDefinition>` for O(1) lookup by criterion ID.
+
+```typescript
+import { CRITERIA_BY_ID } from "@kodalabs-io/eqo";
+
+const criterion = CRITERIA_BY_ID.get("1.1");
+// → { id: "1.1", theme: 1, level: "A", wcag: ["1.1.1"], automationLevel: "full", ... }
+```
+
+### `TOTAL_CRITERIA`
+
+```typescript
+const TOTAL_CRITERIA: number = 106
+```
+
+---
+
+## i18n utilities
+
+### `loadTranslations(locale)`
+
+Load and cache the translation catalog for a locale. Must be called before `getTranslations`.
+
+```typescript
+function loadTranslations(locale: SupportedLocale): Promise<void>
+```
+
+### `getTranslations(locale)`
+
+Return the cached `Translations` object for a locale. Throws if `loadTranslations` has not been called first.
+
+```typescript
+function getTranslations(locale: SupportedLocale): Translations
+```
+
+### `interpolate(template, context)`
+
+Interpolate named placeholders in a translation string.
+
+```typescript
+function interpolate(
+  template: string,
+  context:  Record<string, string>
+): string
+```
+
+### `getSupportedLocales()`
+
+```typescript
+function getSupportedLocales(): SupportedLocale[]
+// → ["en-US", "fr-FR"]
+```
+
+---
+
+## axe-core mapping
+
+### `AXE_TO_RGAA`
+
+A map from axe-core rule IDs to their corresponding RGAA criterion IDs.
+
+```typescript
+import { AXE_TO_RGAA } from "@kodalabs-io/eqo";
+
+const rgaaCriteria = AXE_TO_RGAA["color-contrast"];
+// → ["3.2", "3.3"]
+```
+
+### `getRGAACriteria(axeRuleId)`
+
+Get the RGAA criterion IDs for a given axe-core rule ID.
+
+```typescript
+function getRGAACriteria(axeRuleId: string): string[]
+```
+
+### `getAxeRulesForCriterion(criterionId)`
+
+Get the axe-core rule IDs that map to a given RGAA criterion ID.
+
+```typescript
+function getAxeRulesForCriterion(criterionId: string): string[]
+```
+
+---
+
+## Error classes
+
+### `ConfigError`
+
+Thrown by `loadConfig` when the configuration file is missing, unparseable, or fails schema validation.
+
+```typescript
+class ConfigError extends Error {
+  name: "ConfigError"
+}
+```
+
+### `AnalysisError`
+
+Thrown by `analyze` when a fatal error occurs during analysis (e.g., Playwright crash, worker pool failure).
+
+```typescript
+class AnalysisError extends Error {
+  name: "AnalysisError"
+}
+```
+
+### `TimeoutError`
+
+Thrown when a page load or worker exceeds its configured timeout.
+
+```typescript
+class TimeoutError extends Error {
+  name: "TimeoutError"
+}
+```
+
+---
+
+## Type reference
+
+### `KodaRGAAConfig`
+
+The root configuration type. See [Configuration](/eqo/configuration/) for the full field reference.
+
+```typescript
+interface KodaRGAAConfig {
+  baseUrl:      string;
+  pages:        PageConfig[];
+  output:       OutputConfig[];
+  thresholds?:  ThresholdConfig;
+  exemptions?:  ExemptionConfig[];
+  locale?:      SupportedLocale;
+  projectName?: string;
+  static?:      StaticConfig;
+}
+```
+
+### `RGAAReport`
+
+The full analysis report returned by `analyze()`.
+
+```typescript
+interface RGAAReport {
+  meta: {
+    rgaaVersion:   "4.1.2";
+    toolVersion:   string;
+    generatedAt:   string;        // ISO 8601
+    projectName?:  string;
+    analyzedPages: string[];
+    locale:        SupportedLocale;
+  };
+  summary: ReportSummary;
+  themes:  ThemeResult[];
+  pages:   PageResult[];
+  issues:  RGAAIssue[];
+}
+```
+
+### `ReportSummary`
+
+```typescript
+interface ReportSummary {
+  totalCriteria:  number;   // always 106
+  applicable:     number;   // criteria applicable to at least one page
+  validated:      number;   // applicable criteria that passed
+  invalidated:    number;   // applicable criteria that failed
+  notApplicable:  number;   // not applicable or exempted
+  needsReview:    number;   // require manual check (excluded from rate)
+  complianceRate: number;   // validated / applicable (0–1)
+}
+```
+
+### `RGAAIssue`
+
+A single accessibility issue found during analysis.
+
+```typescript
+interface RGAAIssue {
+  id:               string;           // unique issue ID
+  criterionId:      string;           // e.g., "1.1"
+  testId:           string;           // e.g., "1.1.1"
+  phase:            AnalysisPhase;    // "static" | "runtime"
+  severity:         IssueSeverity;    // "error" | "warning" | "notice"
+  element?:         string;           // serialized HTML of the offending element
+  file?:            string;           // source file path (static phase)
+  line?:            number;
+  column?:          number;
+  page?:            string;           // page path (runtime phase)
+  messageKey:       string;           // i18n message key
+  remediationKey:   string;           // i18n remediation key
+  messageContext?:  Record<string, string>;
+  wcag?:            string;           // WCAG success criterion (e.g., "1.1.1")
+}
+```
+
+### `ThemeResult`
+
+```typescript
+interface ThemeResult {
+  id:               number;
+  complianceRate:   number;            // 0–1 for this theme only
+  criteriaResults:  CriterionResult[];
+}
+```
+
+### `CriterionResult`
+
+```typescript
+interface CriterionResult {
+  id:           string;             // e.g., "1.1"
+  status:       CriterionStatus;    // "validated" | "invalidated" | "not-applicable" | "needs-review"
+  issueCount:   number;
+  testResults:  TestResult[];
+}
+```
+
+### `PageResult`
+
+```typescript
+interface PageResult {
+  url:         string;
+  path:        string;
+  title?:      string;
+  issueCount:  number;
+  error?:      string;   // set if the page could not be analyzed
+}
+```
+
+### Enum types
+
+```typescript
+type AutomationLevel = "full" | "partial" | "manual";
+type CriterionStatus = "validated" | "invalidated" | "not-applicable" | "needs-review";
+type IssueSeverity   = "error" | "warning" | "notice";
+type AnalysisPhase   = "static" | "runtime";
+type WCAGLevel       = "A" | "AA";
+type OutputFormat    = "json" | "html" | "sarif" | "markdown" | "junit";
+type SupportedLocale = "en-US" | "fr-FR";
+```
+
+---
+
+## Full programmatic example
+
+This example runs a static-only analysis, filters for `error`-severity issues, and writes a custom Markdown summary — without using any CLI.
+
+```typescript
+import {
+  analyze,
+  loadConfig,
+  writeReports,
+  ConfigError,
+  AnalysisError,
+} from "@kodalabs-io/eqo";
+import { writeFile } from "node:fs/promises";
+
+async function main() {
+  // Load config
+  let config;
+  try {
+    config = await loadConfig();
+  } catch (err) {
+    if (err instanceof ConfigError) {
+      console.error(`Configuration error: ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  // Run static-only analysis
+  let report;
+  try {
+    report = await analyze(config, { staticOnly: true });
+  } catch (err) {
+    if (err instanceof AnalysisError) {
+      console.error(`Analysis failed: ${err.message}`);
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  const pct = Math.round(report.summary.complianceRate * 100);
+  console.log(`Compliance: ${pct}%`);
+
+  // Filter for errors only
+  const errors = report.issues.filter((i) => i.severity === "error");
+  console.log(`Errors: ${errors.length}`);
+
+  // Write all configured output formats
+  await writeReports(report, config.output);
+
+  // Write a custom summary
+  const summary = [
+    `# RGAA Audit Summary`,
+    ``,
+    `- **Compliance:** ${pct}%`,
+    `- **Errors:** ${errors.length}`,
+    `- **Total issues:** ${report.issues.length}`,
+    ``,
+    `## Errors`,
+    ...errors.map(
+      (i) =>
+        `- **${i.criterionId}** ${i.file ? `\`${i.file}:${i.line}\`` : i.page ?? ""}`
+    ),
+  ].join("\n");
+
+  await writeFile("./reports/summary.md", summary, "utf8");
+}
+
+main();
+```
+
+---
+
+## Adding a new locale
+
+To contribute a new language:
+
+1. Create `src/i18n/<locale>.ts` implementing the `Translations` interface
+2. Register it in `src/i18n/index.ts`
+3. Submit a pull request — see [CONTRIBUTING.md](https://github.com/kodalabs-io/eqo/blob/main/CONTRIBUTING.md)
+
+The `Translations` interface defines message keys for every issue type, remediation guidance, and console output. See `src/i18n/en-US.ts` for the complete reference implementation.

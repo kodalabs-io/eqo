@@ -1,0 +1,77 @@
+name: "RGAA Accessibility Audit"
+description: "Analyze RGAA v4.1.2 accessibility compliance for NextJS projects"
+author: "Koda Labs"
+
+branding:
+  icon: "eye"
+  color: "blue"
+
+inputs:
+  config:
+    description: "Path to the configuration file (default: rgaa.config.ts)"
+    required: false
+    default: "rgaa.config.ts"
+  threshold:
+    description: >
+      Minimum compliance rate (0–100).
+      Set to 0 to never block CI — the report is still generated.
+    required: false
+    default: "0"
+  locale:
+    description: "Report locale (en-US or fr-FR)"
+    required: false
+    default: "en-US"
+  static-only:
+    description: "Run static source analysis only (skip browser)"
+    required: false
+    default: "false"
+  runtime-only:
+    description: "Run browser analysis only (skip static source analysis)"
+    required: false
+    default: "false"
+  upload-sarif:
+    description: "Upload SARIF results to GitHub Code Scanning (requires write permissions)"
+    required: false
+    default: "true"
+
+outputs:
+  compliance-rate:
+    description: "Compliance rate as a percentage (0–100)"
+  report-path:
+    description: "Path to the generated JSON report"
+  issue-count:
+    description: "Total number of detected issues"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - name: Install kodalabs-io/eqo
+      shell: bash
+      run: npm install --global @kodalabs-io/eqo@latest
+
+    - name: Install Playwright browsers
+      if: ${{ inputs.static-only != 'true' }}
+      shell: bash
+      run: npx playwright install chromium --with-deps
+
+    - name: Run RGAA audit
+      shell: bash
+      env:
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_THRESHOLD: ${{ inputs.threshold }}
+        INPUT_LOCALE: ${{ inputs.locale }}
+        INPUT_STATIC_ONLY: ${{ inputs.static-only }}
+        INPUT_RUNTIME_ONLY: ${{ inputs.runtime-only }}
+      run: eqo analyze --config "$INPUT_CONFIG" --threshold "$INPUT_THRESHOLD" --locale "$INPUT_LOCALE"
+
+    - name: Upload SARIF to GitHub Code Scanning
+      if: ${{ inputs.upload-sarif == 'true' && always() }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: reports/rgaa.sarif
+      continue-on-error: true

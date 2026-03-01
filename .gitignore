@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+coverage/
+.astro/
+
+# Reports (generated at runtime)
+*.sarif
+reports/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing & Playwright
+playwright-report/
+test-results/
+__snapshots__/
+.vitest-results/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.npm
+.eslintcache
+.stylelintcache
+.cache/

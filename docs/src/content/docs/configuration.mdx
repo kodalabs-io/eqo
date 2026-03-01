@@ -1,0 +1,343 @@
+---
+title: Configuration
+description: Complete reference for rgaa.config.ts — every option, its type, default value, validation rules, and decision guidance.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Eqo is configured through a file named `rgaa.config.ts` (or `.js`, `.mjs`, `.json`) at the root of your project. The file exports a default configuration object validated by a Zod schema at startup — if your config is invalid, Eqo reports a clear error and exits before running any analysis.
+
+## Config file formats
+
+| Format | When to use |
+|---|---|
+| `rgaa.config.ts` | TypeScript projects. Requires `jiti` (~223 KB lazy-loaded chunk) for transpilation. |
+| `rgaa.config.js` | **Recommended.** No extra dependency. Identical results to `.ts`. |
+| `rgaa.config.mjs` | Explicit ESM-only JavaScript without TypeScript. |
+| `rgaa.config.json` | Minimal setups with no programmatic logic (no comments, no expressions). |
+
+<Aside type="tip" title="Prefer .js for lower overhead">
+`rgaa.config.js` avoids the `jiti` dependency entirely. On cold CI runs, this saves ~223 KB of download and parse time per job. Unless you specifically need TypeScript inference in the config file, `.js` is the better choice.
+</Aside>
+
+## Type-safe configuration
+
+The `defineConfig` helper provides full TypeScript inference on the configuration object:
+
+```typescript
+// rgaa.config.ts
+import { defineConfig } from "@kodalabs-io/eqo";
+
+export default defineConfig({
+  // Your editor will autocomplete every field and flag type errors
+});
+```
+
+`defineConfig` is a zero-overhead identity function — it returns the object you pass in without modification. Its only purpose is to trigger TypeScript's type narrowing.
+
+---
+
+## Complete example
+
+```typescript
+// rgaa.config.ts
+import { defineConfig } from "@kodalabs-io/eqo";
+
+export default defineConfig({
+  baseUrl: "http://localhost:3000",
+  projectName: "Service Public Numérique",
+  locale: "fr-FR",
+
+  pages: [
+    { path: "/",                 name: "Home" },
+    { path: "/contact",          name: "Contact" },
+    { path: "/mentions-legales", name: "Legal Notices" },
+    { path: "/accessibilite",    name: "Accessibility Declaration" },
+    { path: "/recherche",        name: "Search" },
+  ],
+
+  output: [
+    { format: "json",     path: "./public/rgaa-report.json" },
+    { format: "html",     path: "./reports/rgaa.html" },
+    { format: "sarif",    path: "./reports/rgaa.sarif" },
+    { format: "markdown", path: "./reports/rgaa.md" },
+    { format: "junit",    path: "./reports/rgaa.junit.xml" },
+  ],
+
+  thresholds: {
+    complianceRate: 80,
+    failOn: "threshold",
+  },
+
+  exemptions: [
+    {
+      criterion: "4.1",
+      reason: "No video content is published on this site. Criterion 4.1 is not applicable.",
+    },
+  ],
+
+  static: {
+    include: ["src/**/*.{tsx,jsx,ts,js}", "components/**/*.tsx"],
+    exclude: ["**/*.test.*", "**/*.spec.*", "**/*.stories.*", "**/node_modules/**"],
+  },
+});
+```
+
+---
+
+## Options reference
+
+### `baseUrl` — required
+
+```typescript
+baseUrl: string
+```
+
+The base URL of your running Next.js application. Must use `http://` or `https://` protocol. Used exclusively by the runtime (Playwright) phase to construct full page URLs.
+
+```typescript
+baseUrl: "http://localhost:3000"      // local development
+baseUrl: "https://staging.example.fr" // staging environment
+```
+
+The server at `baseUrl` must be running and reachable when you run `eqo analyze` (unless you use `--static-only`). Eqo does not start or wait for your server.
+
+**Validation:** Must be a valid URL starting with `http://` or `https://`. Zod will reject bare hostnames (`localhost:3000`) or file paths.
+
+---
+
+### `pages` — required
+
+```typescript
+pages: Array<{
+  path: string;    // must start with "/"
+  name?: string;   // human-readable label shown in reports
+}>
+```
+
+The list of pages to audit during the runtime phase. Each `path` is appended to `baseUrl` to form the full URL.
+
+```typescript
+pages: [
+  { path: "/",        name: "Home" },
+  { path: "/about",   name: "About" },
+  { path: "/contact", name: "Contact" },
+]
+```
+
+**Validation:** Each `path` must start with `/`. At least one page is required.
+
+<Aside type="note" title="Which pages should I audit for RGAA compliance?">
+French RGAA audit methodology recommends auditing a **representative sample** of your site. The official guidance suggests including:
+
+- The home page
+- The contact page
+- Any page containing a **form** (login, search, sign-up)
+- Any page containing a **table** or **multimedia** content
+- At least one page from each major section of the site
+- The accessibility declaration page (`/accessibilite`)
+- The legal notices page (`/mentions-legales`)
+
+For the compliance rate to be legally meaningful, the sample must be representative of the site's content types — not just the easiest pages.
+</Aside>
+
+---
+
+### `output` — required
+
+```typescript
+output: Array<{
+  format:   "json" | "html" | "sarif" | "markdown" | "junit";
+  path:     string;    // relative to project root
+  minify?:  boolean;   // JSON only, default: false
+}>
+```
+
+One or more output formats. At least one entry is required.
+
+| Format | Best for | Key notes |
+|---|---|---|
+| `json` | Your `/accessibility` page | Write to `./public/` so Next.js serves it statically. Type it as `RGAAReport` from `@kodalabs-io/eqo`. |
+| `html` | Visual review by your team | Interactive, filterable. Open in any browser — no server needed. |
+| `sarif` | GitHub Code Scanning | Displays inline annotations on PR diffs in the Security tab. |
+| `markdown` | PR comments | Paste into PR descriptions or pipe into a GitHub comment bot. |
+| `junit` | CI dashboards | Compatible with Jenkins, CircleCI, GitLab CI test reporters. |
+
+**Recommended minimum for most projects:**
+
+```typescript
+output: [
+  { format: "json",  path: "./public/rgaa-report.json" }, // powers /accessibility
+  { format: "sarif", path: "./reports/rgaa.sarif" },      // GitHub Code Scanning
+],
+```
+
+**Production optimization — minify JSON:**
+
+```typescript
+{ format: "json", path: "./public/rgaa-report.json", minify: true }
+```
+
+The `minify` option applies only to JSON. It strips whitespace from the output file, reducing its size by ~40% — useful when the report is served as a static asset.
+
+---
+
+### `thresholds` — optional
+
+```typescript
+thresholds?: {
+  complianceRate?: number;                     // 0–100, default: 0
+  failOn?:         "error" | "threshold" | "none"; // default: "threshold"
+}
+```
+
+Controls whether Eqo exits with code 1 (CI failure) after the audit.
+
+#### Decision guide: which strategy fits your situation?
+
+| Your situation | Recommended config |
+|---|---|
+| **First audit on an existing project** — you don't know your current rate | `complianceRate: 0` — never blocks, report is still generated |
+| **Want to prevent new errors** without a rate target | `complianceRate: 0, failOn: "error"` — blocks only on `error`-severity issues |
+| **Established project with a known baseline** (e.g., 72%) | `complianceRate: 72, failOn: "threshold"` — fails if you drop below 72% |
+| **Targeting full automated compliance** | `complianceRate: 100, failOn: "threshold"` — fails if any criterion is invalidated |
+| **Reporting only, CI must never break** | `complianceRate: 0, failOn: "none"` — always exits 0 |
+
+#### `failOn` strategies in detail
+
+| `failOn` | `complianceRate` | Result |
+|---|---|---|
+| `"threshold"` | `0` | **Never blocks.** Equivalent to `"none"`. Report is generated, CI continues. |
+| `"threshold"` | `80` | Exits 1 if compliance rate < 80%. |
+| `"threshold"` | `100` | Exits 1 if any applicable criterion is invalidated. |
+| `"error"` | any | Exits 1 if any issue with severity `"error"` is found — regardless of rate. |
+| `"none"` | any | **Never blocks.** Always exits 0. |
+
+<Aside type="tip" title="Start with 0 for existing projects — this is the right default">
+Adding Eqo to an existing project for the first time will almost certainly reveal issues. Starting with `complianceRate: 0` lets you get the baseline measurement without immediately breaking CI. Once you know your baseline (say, 68%), set `complianceRate: 68` to prevent regressions, then raise by 5–10% per sprint as you fix issues.
+</Aside>
+
+<Aside type="note" title="CLI flag always wins">
+Passing `--threshold 80` on the command line overrides `complianceRate` in your config file and forces `failOn: "threshold"`, regardless of what is configured. This is useful for stricter one-off checks — for example, to enforce a higher threshold in release branches — without modifying the config file.
+</Aside>
+
+---
+
+### `exemptions` — optional
+
+```typescript
+exemptions?: Array<{
+  criterion: string;  // format: "X.Y" — e.g., "4.1"
+  reason:    string;  // minimum 10 characters
+}>
+```
+
+RGAA criteria that are intentionally excluded from analysis because they are genuinely not applicable to your site or service.
+
+```typescript
+exemptions: [
+  {
+    criterion: "4.1",
+    reason: "No video content is published on this site. Criterion 4.1 is not applicable.",
+  },
+  {
+    criterion: "4.3",
+    reason: "No audio-only content is published. Criterion 4.3 does not apply.",
+  },
+  {
+    criterion: "13.7",
+    reason: "No animated content or flashing elements are present on any page.",
+  },
+],
+```
+
+<Aside type="caution" title="Exemptions must be honest and traceable">
+In a formal RGAA audit, exemptions (*dérogations*) must be justified by genuine non-applicability — not by technical difficulty or project timeline. The `reason` field requires a minimum of 10 characters. Provide a clear, factual justification.
+
+**Valid:** "No video content exists on this site."
+**Invalid:** "We haven't had time to implement captions."
+
+Exempted criteria are excluded from the compliance rate calculation and reported as `"not-applicable"` in all output formats.
+</Aside>
+
+**Validation:** The `criterion` field must match the format `X.Y` (e.g., `"4.1"`, `"11.9"`). The `reason` must be at least 10 characters.
+
+---
+
+### `locale` — optional
+
+```typescript
+locale?: "en-US" | "fr-FR"   // default: "en-US"
+```
+
+The language for report messages, remediation guidance, and console output.
+
+```typescript
+locale: "fr-FR"  // all messages and reports in French
+```
+
+<Aside type="note" title="Use fr-FR for French regulatory compliance">
+When generating reports for a French accessibility declaration, set `locale: "fr-FR"`. The remediation guidance will be in French, which makes it more directly usable in your declaration documentation and easier to share with non-technical stakeholders.
+</Aside>
+
+The locale can be overridden at runtime with the `--locale` CLI flag without modifying the config file.
+
+---
+
+### `projectName` — optional
+
+```typescript
+projectName?: string
+```
+
+A human-readable name for your project, shown in HTML and JSON report headers. Defaults to the `name` field from your `package.json`.
+
+```typescript
+projectName: "Service Public Numérique — Portail Citoyen"
+```
+
+---
+
+### `static` — optional
+
+```typescript
+static?: {
+  include?: string[];  // glob patterns for files to analyze
+  exclude?: string[];  // glob patterns for files to skip
+}
+```
+
+Controls which files are included in the static (AST) analysis phase.
+
+**Defaults:**
+
+```typescript
+static: {
+  include: ["src/**/*.{tsx,jsx,ts,js}"],
+  exclude: ["**/*.test.*", "**/*.spec.*", "**/node_modules/**"],
+}
+```
+
+Override when your project layout differs from the Next.js standard:
+
+```typescript
+static: {
+  include: [
+    "src/**/*.{tsx,jsx}",        // Next.js app directory
+    "components/**/*.tsx",        // shared component library
+    "app/**/*.tsx",              // Next.js 13+ App Router
+  ],
+  exclude: [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.stories.*",            // Storybook files
+    "**/node_modules/**",
+    "**/__tests__/**",
+    "**/e2e/**",
+  ],
+},
+```
+
+<Aside type="note">
+Glob patterns use [picomatch](https://github.com/micromatch/picomatch) syntax. Patterns in `exclude` take priority over patterns in `include`. The static phase skips non-parseable files (binaries, minified bundles) automatically.
+</Aside>

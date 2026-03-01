@@ -1,0 +1,14 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "projectName": "mini-project",
+  "pages": [{ "path": "/", "name": "Home" }],
+  "output": [{ "format": "json", "path": "./report.json" }],
+  "thresholds": {
+    "complianceRate": 0,
+    "failOn": "threshold"
+  },
+  "static": {
+    "include": ["src/**/*.{tsx,jsx,ts,js}"],
+    "exclude": []
+  }
+}

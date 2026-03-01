@@ -1,0 +1,263 @@
+---
+title: Getting Started
+description: Install Eqo, create your configuration file, and run your first RGAA v4.1.2 audit in 5 minutes.
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+This guide walks you through installing Eqo, creating your configuration, and running your first RGAA v4.1.2 audit. The whole process takes about 5 minutes.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- **Node.js 22 or higher** — Eqo requires Node LTS. Check with `node --version`.
+- **A Next.js project** — Eqo analyzes your source files and connects to a running app for runtime analysis.
+- **Your app accessible at a URL** — Eqo does not start your dev server for you.
+
+<Aside type="note" title="No browser? Use static-only mode">
+If you want to try Eqo immediately without setting up Playwright, use `--static-only`. It runs in seconds, requires no browser, and covers Themes 1, 2, 5, 6, 8, 9, and 11 — a solid starting point.
+</Aside>
+
+---
+
+<Steps>
+
+1. **Install Eqo**
+
+   Add Eqo as a development dependency in your Next.js project root:
+
+   <Tabs>
+     <TabItem label="pnpm">
+       ```bash
+       pnpm add -D @kodalabs-io/eqo
+       ```
+     </TabItem>
+     <TabItem label="npm">
+       ```bash
+       npm install -D @kodalabs-io/eqo
+       ```
+     </TabItem>
+     <TabItem label="bun">
+       ```bash
+       bun add -D @kodalabs-io/eqo
+       ```
+     </TabItem>
+   </Tabs>
+
+   <Aside type="tip" title="rgaa.config.js vs rgaa.config.ts">
+   If you use `rgaa.config.js` instead of `rgaa.config.ts`, Eqo does not need to load `jiti` to transpile TypeScript. This saves ~223 KB on the first run and on every cold CI start. Both formats are fully supported and produce identical results. Use `.ts` only if you need type inference in your editor on the config file itself.
+   </Aside>
+
+2. **Install Playwright for runtime analysis**
+
+   Runtime analysis (browser-based audit) requires Playwright and axe-core as peer dependencies:
+
+   <Tabs>
+     <TabItem label="pnpm">
+       ```bash
+       pnpm add -D playwright @axe-core/playwright axe-core
+       pnpm exec playwright install chromium
+       ```
+     </TabItem>
+     <TabItem label="npm">
+       ```bash
+       npm install -D playwright @axe-core/playwright axe-core
+       npx playwright install chromium
+       ```
+     </TabItem>
+     <TabItem label="bun">
+       ```bash
+       bun add -D playwright @axe-core/playwright axe-core
+       bunx playwright install chromium
+       ```
+     </TabItem>
+   </Tabs>
+
+   **Skip this step entirely** if you are starting with `--static-only`. You can add Playwright later when you are ready for runtime analysis.
+
+3. **Initialize your configuration**
+
+   Run `eqo init` in your project root. Eqo reads your `package.json` to pre-populate the project name and generates a `rgaa.config.ts` with sensible defaults:
+
+   <Tabs>
+     <TabItem label="pnpm">
+       ```bash
+       pnpm eqo init
+       ```
+     </TabItem>
+     <TabItem label="npm">
+       ```bash
+       npx eqo init
+       ```
+     </TabItem>
+     <TabItem label="bun">
+       ```bash
+       bunx eqo init
+       ```
+     </TabItem>
+   </Tabs>
+
+   This creates `rgaa.config.ts` in your project root:
+
+   ```typescript
+   // rgaa.config.ts
+   import { defineConfig } from "@kodalabs-io/eqo";
+
+   export default defineConfig({
+     baseUrl: "http://localhost:3000",
+     projectName: "my-app",
+     locale: "en-US",
+
+     pages: [
+       { path: "/", name: "Home" },
+     ],
+
+     output: [
+       { format: "json",     path: "./public/rgaa-report.json" },
+       { format: "html",     path: "./reports/rgaa.html" },
+       { format: "sarif",    path: "./reports/rgaa.sarif" },
+       { format: "markdown", path: "./reports/rgaa.md" },
+     ],
+
+     thresholds: {
+       complianceRate: 0,
+       failOn: "threshold",
+     },
+   });
+   ```
+
+4. **Configure your pages and outputs**
+
+   Open `rgaa.config.ts` and add the pages you want to audit. For a French organization, a representative sample should include:
+
+   ```typescript
+   pages: [
+     { path: "/",                  name: "Home" },
+     { path: "/about",             name: "About" },
+     { path: "/contact",           name: "Contact" },
+     { path: "/mentions-legales",  name: "Legal Notices" },
+     { path: "/accessibilite",     name: "Accessibility Declaration" },
+   ],
+   ```
+
+   If your reports should be in French, set the locale:
+
+   ```typescript
+   locale: "fr-FR",
+   ```
+
+   See the [Configuration reference](/eqo/configuration/) for all available options and their defaults.
+
+5. **Start your Next.js application**
+
+   Eqo's runtime phase connects to a live URL. Start your dev server in a separate terminal — and keep it running during the audit:
+
+   ```bash
+   # In a separate terminal
+   npm run dev
+   ```
+
+   Make sure your app is accessible at the URL you set in `baseUrl` (default: `http://localhost:3000`). Eqo does not wait for the server to start; if it is unreachable, the runtime phase will report an error for each page.
+
+6. **Run your first audit**
+
+   <Tabs>
+     <TabItem label="Full audit">
+       ```bash
+       npx eqo analyze
+       ```
+       Runs both phases: static AST analysis on your source files, then Playwright runtime analysis on each configured page. Requires your app to be running.
+     </TabItem>
+     <TabItem label="Static only (fast)">
+       ```bash
+       npx eqo analyze --static-only
+       ```
+       Analyzes source files only. No browser, no running server required. Typically finishes in under 10 seconds on a medium-sized Next.js project.
+     </TabItem>
+     <TabItem label="With threshold">
+       ```bash
+       npx eqo analyze --threshold 80
+       ```
+       Overrides `complianceRate` in the config and exits with code 1 if compliance drops below 80%. Useful for one-off checks.
+     </TabItem>
+     <TabItem label="In French">
+       ```bash
+       npx eqo analyze --locale fr-FR
+       ```
+       Overrides the locale in the config. All report messages and remediation guidance will be in French.
+     </TabItem>
+   </Tabs>
+
+</Steps>
+
+---
+
+## Reading your first report
+
+After the audit, Eqo prints a summary to the terminal:
+
+```
+  eqo — RGAA v4.1.2 Accessibility Analyzer
+  2026-03-01T10:00:00.000Z
+
+  ✔ Static analysis complete
+  ✔ Runtime analysis complete
+  ✔ Analysis complete
+
+  ┌─────────────────────────────────────────┐
+  │  Compliance rate:     72%               │
+  │  Applicable:          43 criteria       │
+  │  Validated:           31 criteria       │
+  │  Invalidated:          8 criteria       │
+  │  Needs review:         4 criteria       │
+  │  Total issues:        23               │
+  └─────────────────────────────────────────┘
+
+  ℹ Report written to public/rgaa-report.json
+  ℹ Report written to reports/rgaa.html
+  ℹ Report written to reports/rgaa.sarif
+  ℹ Report written to reports/rgaa.md
+```
+
+Open `reports/rgaa.html` in your browser for the interactive visual report — filterable by theme, severity, and page.
+
+### Understanding the compliance rate
+
+```
+complianceRate = validated criteria ÷ applicable criteria
+```
+
+- **Applicable**: criteria that apply to at least one of your audited pages
+- **Validated**: applicable criteria where all automated checks passed on all pages
+- **Needs review**: criteria excluded from the rate (require manual checking)
+- **Not applicable**: criteria that don't apply to any page, or are exempted in the config
+
+<Aside type="caution" title="A high compliance rate is not a guarantee of full accessibility">
+Because ~35% of RGAA criteria require manual review, a 100% Eqo compliance rate does not mean your site is fully RGAA-conformant. Always complement automated audits with manual testing — especially for Themes 4 (Multimedia), and relevance checks on alternatives. See [Introduction → Honest limitations](/eqo/introduction/#honest-limitations).
+</Aside>
+
+---
+
+## Add to your `package.json` scripts
+
+For convenience, add the audit commands to your project's scripts:
+
+```json
+{
+  "scripts": {
+    "a11y": "eqo analyze",
+    "a11y:static": "eqo analyze --static-only",
+    "a11y:ci": "eqo analyze --threshold 80"
+  }
+}
+```
+
+---
+
+## Next steps
+
+- **Deep-dive into all config options** → [Configuration](/eqo/configuration/)
+- **Build your `/accessibility` page in Next.js** → [Accessibility Page guide](/eqo/guides/accessibility-page/)
+- **Set up CI/CD blocking** → [CI/CD Integration guide](/eqo/guides/ci-cd/)
+- **Use the programmatic API** → [API Reference](/eqo/reference/api/)

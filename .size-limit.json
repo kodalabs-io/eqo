@@ -1,0 +1,18 @@
+[
+  {
+    "path": "dist/worker.js",
+    "limit": "650 kB"
+  },
+  {
+    "path": "dist/action.js",
+    "limit": "300 kB"
+  },
+  {
+    "path": "dist/index.js",
+    "limit": "150 kB"
+  },
+  {
+    "path": "dist/cli/index.js",
+    "limit": "180 kB"
+  }
+]

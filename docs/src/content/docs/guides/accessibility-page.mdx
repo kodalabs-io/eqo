@@ -1,0 +1,494 @@
+---
+title: Creating the Accessibility Page
+description: How to consume Eqo's JSON report in Next.js to build a legally compliant accessibility declaration page (déclaration d'accessibilité).
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+## Why this page exists
+
+The **accessibility declaration** (*déclaration d'accessibilité*) is not optional for organizations subject to French law. It is a **mandatory page** on every digital service that must disclose your compliance status, list non-conformant criteria, provide a contact mechanism for users to report barriers, and state the date of your last audit.
+
+Eqo's JSON report contains all the data this page needs — compliance rate, per-theme breakdowns, issue lists, and audit metadata. This guide shows you how to import that data into Next.js and build the page.
+
+<Aside type="caution" title="The data is the foundation, not the full declaration">
+Eqo generates the compliance *data*. The legal declaration page also requires written elements that a tool cannot produce for you:
+
+- A narrative statement of your conformance level ("partially conformant," "non-conformant")
+- Justifications for each non-compliant criterion (why it is not yet fixed)
+- A contact mechanism (email, form) with a commitment to respond within a reasonable time
+- An escalation path if you do not respond (typically DINUM's mediator)
+- The name and contact of the person responsible for accessibility
+
+These must be written by a human. The code examples in this guide show you where to insert them.
+</Aside>
+
+---
+
+## Step 1 — Configure the JSON output
+
+In your `rgaa.config.ts`, make sure the JSON report is written to the `public/` directory. Next.js serves everything in `public/` as static files — this makes the report accessible at a predictable URL at runtime.
+
+```typescript
+// rgaa.config.ts
+output: [
+  {
+    format: "json",
+    path: "./public/rgaa-report.json",
+    minify: true,  // recommended for production
+  },
+  // ...other formats
+],
+```
+
+The report will be available at `https://your-site.fr/rgaa-report.json` after deployment.
+
+<Aside type="note" title="Should I commit rgaa-report.json to git?">
+It depends on your workflow:
+
+- **Commit it:** The report is always present even without running CI. Good for smaller teams that run the audit locally before deploying.
+- **Generate it in CI:** Run `eqo analyze` before `next build` in your pipeline. The report is always fresh and reflects the exact build being deployed. Recommended for production use.
+
+The CI approach is covered in the [CI/CD Integration guide](/eqo/guides/ci-cd/).
+</Aside>
+
+---
+
+## Step 2 — Understand the report structure
+
+The JSON report is typed as `RGAAReport`. Import the type from `@kodalabs-io/eqo` to get full editor autocompletion:
+
+```typescript
+import type { RGAAReport } from "@kodalabs-io/eqo";
+```
+
+The key fields you'll use in your page:
+
+```typescript
+interface RGAAReport {
+  meta: {
+    rgaaVersion:    "4.1.2";       // always "4.1.2"
+    toolVersion:    string;         // e.g., "0.1.0"
+    generatedAt:    string;         // ISO 8601 date string
+    projectName?:   string;         // from your config
+    analyzedPages:  string[];       // list of audited URLs
+    locale:         "en-US" | "fr-FR";
+  };
+
+  summary: {
+    totalCriteria:  number;   // always 106
+    applicable:     number;   // criteria that apply to at least one page
+    validated:      number;   // applicable criteria that passed
+    invalidated:    number;   // applicable criteria that failed
+    notApplicable:  number;   // exempted or genuinely N/A criteria
+    needsReview:    number;   // criteria requiring manual check
+    complianceRate: number;   // validated / applicable — value between 0 and 1
+  };
+
+  themes: ThemeResult[];   // per-theme compliance rates
+  pages:  PageResult[];    // per-page issue counts and errors
+  issues: RGAAIssue[];     // all detected issues
+}
+```
+
+### The compliance rate
+
+```typescript
+// complianceRate is a decimal between 0 and 1
+const pct = Math.round(report.summary.complianceRate * 100);
+// → 72 (meaning 72%)
+```
+
+This rate represents `validated / applicable` — the fraction of automatically-checkable applicable criteria that passed. Criteria marked `needs-review` are excluded from this calculation.
+
+### Issue severity
+
+Each issue in `report.issues` has a `severity` field:
+
+| Severity | Meaning |
+|---|---|
+| `"error"` | Clear RGAA failure — must be fixed for conformance |
+| `"warning"` | Potential issue — should be reviewed |
+| `"notice"` | Informational — requires human judgment to confirm |
+
+---
+
+## Step 3 — Basic implementation
+
+This is the minimum viable accessibility declaration page. It satisfies the legal requirement for the data section but needs the written narrative elements to be complete.
+
+```typescript
+// app/accessibilite/page.tsx
+import report from "../../public/rgaa-report.json";
+import type { RGAAReport } from "@kodalabs-io/eqo";
+
+// Cast the imported JSON to the typed interface
+const typedReport = report as RGAAReport;
+
+export const metadata = {
+  title: "Déclaration d'accessibilité",
+  description: "Déclaration de conformité RGAA v4.1.2 de notre service numérique.",
+};
+
+export default function AccessibilityPage() {
+  const pct = Math.round(typedReport.summary.complianceRate * 100);
+  const auditDate = new Date(typedReport.meta.generatedAt).toLocaleDateString(
+    "fr-FR",
+    { year: "numeric", month: "long", day: "numeric" }
+  );
+
+  return (
+    <main id="main-content">
+      <h1>Déclaration d&apos;accessibilité</h1>
+
+      {/* ── Legal preamble ─────────────────────────────────────────── */}
+      <p>
+        [Nom de votre organisation] s&apos;engage à rendre son service numérique
+        accessible, conformément à l&apos;article 47 de la loi n°2005-102 du
+        11 février 2005.
+      </p>
+
+      {/* ── Conformance status ─────────────────────────────────────── */}
+      <h2>État de conformité</h2>
+      <p>
+        Ce service numérique est <strong>partiellement conforme</strong> au
+        référentiel général d&apos;amélioration de l&apos;accessibilité (RGAA),
+        version 4.1.2.
+      </p>
+
+      {/* ── Compliance rate from Eqo ───────────────────────────────── */}
+      <h2>Résultats des tests</h2>
+      <p>
+        L&apos;audit automatisé réalisé avec Eqo v{typedReport.meta.toolVersion}{" "}
+        révèle un taux de conformité de <strong>{pct}%</strong> sur les
+        critères vérifiables automatiquement.
+      </p>
+
+      <ul>
+        <li>Critères applicables : {typedReport.summary.applicable}</li>
+        <li>Critères conformes : {typedReport.summary.validated}</li>
+        <li>Critères non conformes : {typedReport.summary.invalidated}</li>
+        <li>Critères nécessitant une vérification manuelle : {typedReport.summary.needsReview}</li>
+      </ul>
+
+      <p>
+        Dernière analyse automatisée le :{" "}
+        <time dateTime={typedReport.meta.generatedAt}>{auditDate}</time>
+      </p>
+      <p>Pages analysées : {typedReport.meta.analyzedPages.join(", ")}</p>
+
+      {/* ── Contact mechanism — REQUIRED ──────────────────────────── */}
+      <h2>Signaler un problème d&apos;accessibilité</h2>
+      <p>
+        Si vous rencontrez un obstacle à l&apos;accès à un contenu ou une
+        fonctionnalité, vous pouvez nous le signaler par email à{" "}
+        <a href="mailto:accessibilite@example.fr">accessibilite@example.fr</a>.
+      </p>
+      <p>
+        Nous nous engageons à vous répondre dans un délai de 2 jours ouvrés et
+        à vous proposer une alternative accessible.
+      </p>
+
+      {/* ── Escalation path — REQUIRED ────────────────────────────── */}
+      <h2>Voie de recours</h2>
+      <p>
+        Si vous constatez un défaut d&apos;accessibilité qui vous empêche
+        d&apos;accéder à un contenu ou une fonctionnalité, et que vous ne
+        recevez pas de réponse satisfaisante dans les délais indiqués, vous
+        pouvez contacter le{" "}
+        <a href="https://formulaire.defenseurdesdroits.fr">
+          Défenseur des droits
+        </a>
+        .
+      </p>
+    </main>
+  );
+}
+```
+
+---
+
+## Step 4 — Advanced implementation
+
+This extended version renders the full RGAA theme breakdown and the list of non-compliant criteria — useful for teams that want to publish comprehensive data and for auditors who need the full picture.
+
+```typescript
+// app/accessibilite/page.tsx
+import report from "../../public/rgaa-report.json";
+import type { RGAAReport, RGAAIssue } from "@kodalabs-io/eqo";
+
+const typedReport = report as RGAAReport;
+
+// RGAA theme names — hardcoded since the report only stores theme IDs
+const THEME_NAMES: Record<number, string> = {
+  1:  "Images",
+  2:  "Cadres",
+  3:  "Couleurs",
+  4:  "Multimédia",
+  5:  "Tableaux",
+  6:  "Liens",
+  7:  "Scripts",
+  8:  "Éléments obligatoires",
+  9:  "Structuration de l'information",
+  10: "Présentation de l'information",
+  11: "Formulaires",
+  12: "Navigation",
+  13: "Consultation",
+};
+
+export default function AccessibilityPage() {
+  const pct = Math.round(typedReport.summary.complianceRate * 100);
+  const auditDate = new Date(typedReport.meta.generatedAt).toLocaleDateString(
+    "fr-FR",
+    { year: "numeric", month: "long", day: "numeric" }
+  );
+
+  // Only show themes that have at least one invalidated criterion
+  const nonCompliantThemes = typedReport.themes.filter((theme) =>
+    theme.criteriaResults.some((c) => c.status === "invalidated")
+  );
+
+  // Only errors and warnings — exclude notices
+  const significantIssues = typedReport.issues.filter(
+    (i): i is RGAAIssue =>
+      i.severity === "error" || i.severity === "warning"
+  );
+
+  return (
+    <main id="main-content">
+      <h1>Déclaration d&apos;accessibilité</h1>
+
+      {/* ── Conformance status ─────────────────────────────────────── */}
+      <section aria-labelledby="conformance-heading">
+        <h2 id="conformance-heading">État de conformité</h2>
+        <p>
+          Taux de conformité RGAA v{typedReport.meta.rgaaVersion} :{" "}
+          <strong>{pct}%</strong>
+        </p>
+        <p>
+          <em>
+            Sur {typedReport.summary.applicable} critères applicables,{" "}
+            {typedReport.summary.validated} sont conformes et{" "}
+            {typedReport.summary.invalidated} ne le sont pas.{" "}
+            {typedReport.summary.needsReview} critères nécessitent une
+            vérification manuelle complémentaire.
+          </em>
+        </p>
+      </section>
+
+      {/* ── Results by theme ───────────────────────────────────────── */}
+      <section aria-labelledby="themes-heading">
+        <h2 id="themes-heading">Résultats par thématique</h2>
+        <table>
+          <caption>
+            Taux de conformité par thématique RGAA v4.1.2
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Thématique</th>
+              <th scope="col">Taux de conformité</th>
+              <th scope="col">Critères non conformes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {typedReport.themes.map((theme) => {
+              const invalidatedCount = theme.criteriaResults.filter(
+                (c) => c.status === "invalidated"
+              ).length;
+              const themePct = Math.round(theme.complianceRate * 100);
+
+              return (
+                <tr key={theme.id}>
+                  <td>
+                    {theme.id}. {THEME_NAMES[theme.id] ?? `Thème ${theme.id}`}
+                  </td>
+                  <td>{themePct}%</td>
+                  <td>{invalidatedCount > 0 ? invalidatedCount : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </section>
+
+      {/* ── Non-compliant criteria ─────────────────────────────────── */}
+      {nonCompliantThemes.length > 0 && (
+        <section aria-labelledby="nc-heading">
+          <h2 id="nc-heading">Critères non conformes</h2>
+          {nonCompliantThemes.map((theme) => (
+            <div key={theme.id}>
+              <h3>
+                Thème {theme.id} — {THEME_NAMES[theme.id]}
+              </h3>
+              <ul>
+                {theme.criteriaResults
+                  .filter((c) => c.status === "invalidated")
+                  .map((criterion) => (
+                    <li key={criterion.id}>
+                      Critère {criterion.id} —{" "}
+                      {criterion.issueCount} problème
+                      {criterion.issueCount > 1 ? "s" : ""} détecté
+                      {criterion.issueCount > 1 ? "s" : ""}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* ── Issues requiring review ────────────────────────────────── */}
+      {significantIssues.length > 0 && (
+        <section aria-labelledby="issues-heading">
+          <h2 id="issues-heading">
+            Anomalies détectées ({significantIssues.length})
+          </h2>
+          <p>
+            Les éléments suivants ont été identifiés lors de l&apos;audit
+            automatisé. Ils feront l&apos;objet de corrections dans les
+            prochaines mises à jour du service.
+          </p>
+          <ul>
+            {significantIssues.map((issue) => (
+              <li key={issue.id}>
+                <strong>Critère {issue.criterionId}</strong>
+                {issue.file && (
+                  <> — <code>{issue.file}</code>
+                    {issue.line && <> ligne {issue.line}</>}
+                  </>
+                )}
+                {issue.page && <> — page {issue.page}</>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* ── Audit metadata ─────────────────────────────────────────── */}
+      <section aria-labelledby="audit-heading">
+        <h2 id="audit-heading">Informations sur l&apos;audit</h2>
+        <dl>
+          <dt>Outil utilisé</dt>
+          <dd>
+            Eqo v{typedReport.meta.toolVersion} par Koda Labs (analyse
+            automatisée RGAA v{typedReport.meta.rgaaVersion})
+          </dd>
+          <dt>Date de l&apos;audit</dt>
+          <dd>
+            <time dateTime={typedReport.meta.generatedAt}>{auditDate}</time>
+          </dd>
+          <dt>Pages analysées</dt>
+          <dd>
+            <ul>
+              {typedReport.meta.analyzedPages.map((url) => (
+                <li key={url}>{url}</li>
+              ))}
+            </ul>
+          </dd>
+        </dl>
+      </section>
+
+      {/* ── Contact mechanism — REQUIRED ──────────────────────────── */}
+      <section aria-labelledby="contact-heading">
+        <h2 id="contact-heading">
+          Signaler un problème d&apos;accessibilité
+        </h2>
+        <p>
+          Si vous rencontrez un obstacle à l&apos;accès à un contenu ou une
+          fonctionnalité, vous pouvez nous le signaler :
+        </p>
+        <ul>
+          <li>
+            Par email :{" "}
+            <a href="mailto:accessibilite@example.fr">
+              accessibilite@example.fr
+            </a>
+          </li>
+          <li>
+            Via notre{" "}
+            <a href="/contact">formulaire de contact</a>
+          </li>
+        </ul>
+        <p>
+          Nous nous engageons à vous répondre dans un délai de 2 jours ouvrés
+          et, si le problème ne peut pas être corrigé immédiatement, à vous
+          proposer une alternative accessible.
+        </p>
+      </section>
+
+      {/* ── Escalation path — REQUIRED ────────────────────────────── */}
+      <section aria-labelledby="recours-heading">
+        <h2 id="recours-heading">Voie de recours</h2>
+        <p>
+          Si vous constatez un défaut d&apos;accessibilité qui vous empêche
+          d&apos;accéder à un contenu ou une fonctionnalité, et que vous ne
+          recevez pas de réponse satisfaisante dans les délais indiqués, vous
+          pouvez contacter le{" "}
+          <a
+            href="https://formulaire.defenseurdesdroits.fr"
+            rel="noopener noreferrer"
+          >
+            Défenseur des droits
+          </a>
+          .
+        </p>
+      </section>
+    </main>
+  );
+}
+```
+
+---
+
+## Step 5 — Keep the report up to date
+
+The accessibility declaration must reflect the current state of your service. A stale report from 6 months ago is worse than no report — it can mislead users and expose you to regulatory risk.
+
+### Option A — Generate at build time (recommended)
+
+Run `eqo analyze` before `next build` in your CI pipeline:
+
+```yaml
+# .github/workflows/deploy.yml
+- name: Run RGAA audit
+  run: npx eqo analyze
+
+- name: Build Next.js
+  run: next build
+```
+
+This guarantees that `public/rgaa-report.json` is always fresh and reflects the exact code being deployed. See the [CI/CD Integration guide](/eqo/guides/ci-cd/) for a complete pipeline.
+
+### Option B — Run locally before releases
+
+If you don't have CI automation, run the audit manually before each deploy:
+
+<Tabs>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm eqo analyze && pnpm next build
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npx eqo analyze && next build
+    ```
+  </TabItem>
+</Tabs>
+
+Add this as a `prebuild` script in `package.json` so it runs automatically:
+
+```json
+{
+  "scripts": {
+    "prebuild": "eqo analyze",
+    "build": "next build"
+  }
+}
+```
+
+<Aside type="note" title="How often should you run the audit?">
+French accessibility regulations recommend auditing digital services **at least once a year**. In practice, automated audits in CI catch regressions continuously — the annual audit is primarily for the manual review portions that Eqo cannot cover automatically.
+
+Update the date shown on your declaration page to match the date of your most recent full audit (automated + manual combined).
+</Aside>

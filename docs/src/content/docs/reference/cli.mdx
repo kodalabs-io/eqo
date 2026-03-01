@@ -1,0 +1,190 @@
+---
+title: CLI Commands
+description: Complete reference for the eqo CLI — all commands, flags, exit codes, and environment variables.
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+The `eqo` CLI ships with two commands: `analyze` and `init`. It is available after installing `@kodalabs-io/eqo` — either locally via `npx eqo` or globally via `npm install -g @kodalabs-io/eqo`.
+
+---
+
+## `eqo analyze`
+
+Run the RGAA v4.1.2 accessibility audit against your configured pages and source files.
+
+```bash
+eqo analyze [options]
+```
+
+### Flags
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--config <path>` | `string` | `rgaa.config.ts` | Path to the configuration file, relative to the current working directory. |
+| `--threshold <n>` | `0–100` | From config | Override `thresholds.complianceRate` in the config. Forces `failOn: "threshold"` regardless of the config value. |
+| `--locale <locale>` | `en-US \| fr-FR` | From config | Override `locale` in the config. |
+| `--static-only` | flag | `false` | Run only the static (Babel AST) analysis phase. No browser, no running server needed. |
+| `--runtime-only` | flag | `false` | Run only the runtime (Playwright) analysis phase. Skips source file scanning. |
+
+<Aside type="caution">
+`--static-only` and `--runtime-only` are mutually exclusive. Using both together causes an error and exits with code 1.
+</Aside>
+
+### Examples
+
+```bash
+# Full audit using the default config
+eqo analyze
+
+# Full audit with a custom config path
+eqo analyze --config ./config/rgaa.config.ts
+
+# Static analysis only — no browser required, runs in seconds
+eqo analyze --static-only
+
+# Runtime analysis only — skips AST parsing
+eqo analyze --runtime-only
+
+# Override compliance threshold to 80%
+eqo analyze --threshold 80
+
+# Run in French (overrides config locale)
+eqo analyze --locale fr-FR
+
+# Combine flags: static only, French, threshold 0
+eqo analyze --static-only --locale fr-FR --threshold 0
+```
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Audit completed. No blocking condition was triggered (threshold not breached, no errors when `failOn: "error"`, or `failOn: "none"`). |
+| `1` | Audit failed. One of: compliance rate below threshold; error-severity issues found when `failOn: "error"`; configuration error; analysis error; invalid flag combination. |
+| `130` | Process aborted (e.g., user pressed Ctrl+C). |
+
+### Exit code logic in detail
+
+Eqo applies the following decision tree at the end of every run:
+
+```
+if failOn === "none" OR complianceRate === 0:
+  → exit 0 (never block)
+
+elif failOn === "error" AND any issue.severity === "error":
+  → exit 1 (error issues found)
+
+elif failOn === "threshold" AND complianceRate > 0 AND pct < complianceRate:
+  → exit 1 (compliance below threshold)
+
+else:
+  → exit 0
+```
+
+Where `pct = Math.round(report.summary.complianceRate * 100)`.
+
+### How CLI flags interact with the config
+
+| Source | Priority | Notes |
+|---|---|---|
+| `--threshold <n>` CLI flag | **Highest** | Overrides `thresholds.complianceRate` in config. Also forces `failOn: "threshold"` regardless of what is set in config. |
+| `--locale <locale>` CLI flag | **Highest** | Overrides `locale` in config. |
+| `thresholds` in config | Medium | Used when no CLI flag is passed. |
+| Hardcoded defaults | Lowest | `complianceRate: 0`, `failOn: "threshold"`, `locale: "en-US"`. |
+
+### GitHub Actions integration
+
+When running inside GitHub Actions (`GITHUB_ACTIONS === "true"`), `eqo analyze` automatically emits [workflow commands](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions) for inline PR annotations. No extra configuration is required.
+
+For each `error` or `warning` issue found, Eqo emits:
+
+```
+::error file=src/components/Image.tsx,line=12,col=5,title=RGAA 1.1::img.missing-alt
+::warning file=src/app/page.tsx,line=34,col=9,title=RGAA 9.1::heading.hierarchy
+```
+
+These appear as inline comments on the specific lines of your PR diff in the GitHub UI. Issues found during runtime analysis (no source file) are emitted without a `file` parameter.
+
+---
+
+## `eqo init`
+
+Create a default `rgaa.config.ts` in the current directory.
+
+```bash
+eqo init
+```
+
+### Behavior
+
+1. Reads your `package.json` to detect the project name (falls back to `"my-app"` if not found)
+2. Creates `rgaa.config.ts` in the current working directory with sensible defaults
+3. Uses atomic file creation (open with `O_EXCL` flag) to prevent TOCTOU race conditions
+4. Exits with code 1 if `rgaa.config.ts` already exists — it will not overwrite an existing config
+
+### Generated file
+
+```typescript
+// rgaa.config.ts
+import { defineConfig } from "@kodalabs-io/eqo";
+
+export default defineConfig({
+  baseUrl: "http://localhost:3000",
+  projectName: "my-app",    // ← detected from package.json
+  locale: "en-US",
+
+  pages: [
+    { path: "/", name: "Home" },
+  ],
+
+  output: [
+    { format: "json",     path: "./public/rgaa-report.json" },
+    { format: "html",     path: "./reports/rgaa.html" },
+    { format: "sarif",    path: "./reports/rgaa.sarif" },
+    { format: "markdown", path: "./reports/rgaa.md" },
+  ],
+
+  thresholds: {
+    complianceRate: 0,
+    failOn: "threshold",
+  },
+
+  exemptions: [],
+});
+```
+
+After running `init`, open `rgaa.config.ts` and configure at minimum:
+- `baseUrl` — your app's URL
+- `pages` — the pages you want to audit
+- `locale` — set to `"fr-FR"` for French reports
+
+---
+
+## Config file resolution
+
+When Eqo looks for the configuration file, it searches the current working directory in this order:
+
+1. The path specified by `--config` (if provided)
+2. `rgaa.config.ts`
+3. `rgaa.config.js`
+4. `rgaa.config.mjs`
+5. `rgaa.config.json`
+
+If none is found, Eqo exits with an error and code 1.
+
+TypeScript config files (`.ts`) are transpiled on the fly using [jiti](https://github.com/unjs/jiti). JavaScript and JSON files are loaded natively.
+
+---
+
+## Console output
+
+Eqo writes all progress and results to `stdout`. The format is fixed (not configurable) and designed to be human-readable in both terminal and CI log contexts.
+
+| Symbol | Meaning |
+|---|---|
+| `✔` | Step completed successfully |
+| `ℹ` | Informational — report path, metadata |
+| `✘` | Error — analysis failed, config invalid, threshold breached |
+
+The summary table printed at the end always uses absolute numbers (not percentages) for validated/invalidated counts, to avoid ambiguity when the number of applicable criteria varies between runs.

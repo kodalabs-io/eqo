@@ -1,0 +1,28 @@
+# Source files (consumers get dist only)
+src/
+tests/
+.github/
+docs/
+
+# Config files
+biome.json
+tsup.config.ts
+tsconfig.json
+vitest.config.ts
+.changeset/
+
+# Development
+*.test.ts
+*.spec.ts
+coverage/
+playwright-report/
+test-results/
+reports/
+
+# Docs (README kept)
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+
+# Misc
+.env*
+*.log

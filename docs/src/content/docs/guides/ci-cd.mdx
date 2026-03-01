@@ -1,0 +1,422 @@
+---
+title: CI/CD Integration
+description: Best practices for integrating RGAA audits into GitHub Actions — blocking vs non-blocking strategies, SARIF uploads, and progressive threshold management.
+---
+
+import { Steps, Aside, Tabs, TabItem, Card, CardGrid } from '@astrojs/starlight/components';
+
+## Why run accessibility audits in CI?
+
+Running Eqo in your CI pipeline does one thing that manual audits cannot: it catches **regressions automatically**, on every pull request, before they reach production.
+
+Accessibility regressions are silent. A developer adds a feature, forgets `alt` on an image, and the compliance rate drops by 3%. Nobody notices until a user complains — or an auditor finds it. CI integration closes that gap.
+
+Eqo integrates with GitHub Actions in two modes:
+
+<CardGrid>
+  <Card title="Non-blocking (observe)" icon="information">
+    Generate the full RGAA report and upload it to GitHub Code Scanning. CI always passes. Issues are visible on the PR diff as annotations. **Use this when starting out.**
+  </Card>
+  <Card title="Blocking (enforce)" icon="warning">
+    Fail the CI job if compliance drops below a threshold or if error-severity issues are found. **Use this once you have an established baseline.**
+  </Card>
+</CardGrid>
+
+---
+
+## Option A — Using the Eqo GitHub Action (recommended)
+
+The official `kodalabs-io/eqo` GitHub Action handles Node.js setup, Playwright installation, and SARIF upload automatically. This is the least maintenance approach.
+
+```yaml
+# .github/workflows/accessibility.yml
+name: Accessibility Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rgaa:
+    name: RGAA v4.1.2 Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # required for SARIF upload
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start Next.js application
+        run: |
+          npm run build
+          npm start &
+          npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Run RGAA audit
+        uses: kodalabs-io/eqo@v1
+        with:
+          config: ./rgaa.config.ts
+          threshold: 0        # non-blocking — report only
+          locale: fr-FR
+          upload-sarif: true
+```
+
+### GitHub Action inputs
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `config` | `string` | `rgaa.config.ts` | Path to the Eqo config file |
+| `threshold` | `0–100` | `0` | Minimum compliance rate. `0` = never block CI. |
+| `locale` | `en-US \| fr-FR` | `en-US` | Report language |
+| `static-only` | `boolean` | `false` | Skip the browser phase |
+| `runtime-only` | `boolean` | `false` | Skip the static analysis phase |
+| `upload-sarif` | `boolean` | `true` | Upload SARIF to GitHub Code Scanning |
+
+### GitHub Action outputs
+
+| Output | Description |
+|---|---|
+| `compliance-rate` | Compliance percentage as an integer (e.g., `72`) |
+| `report-path` | Absolute path to the generated JSON report |
+| `issue-count` | Total number of detected issues |
+
+Use outputs to drive downstream steps:
+
+```yaml
+- name: Run RGAA audit
+  id: rgaa
+  uses: kodalabs-io/eqo@v1
+  with:
+    threshold: 0
+
+- name: Post compliance rate as PR comment
+  if: github.event_name == 'pull_request'
+  uses: actions/github-script@v7
+  with:
+    script: |
+      github.rest.issues.createComment({
+        issue_number: context.issue.number,
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        body: `### RGAA Accessibility Audit\n\nCompliance rate: **${{ steps.rgaa.outputs.compliance-rate }}%**\nIssues found: **${{ steps.rgaa.outputs.issue-count }}**`,
+      });
+```
+
+---
+
+## Option B — Using the Eqo CLI directly
+
+If you prefer full control over the workflow, use the CLI directly:
+
+```yaml
+# .github/workflows/accessibility.yml
+name: Accessibility Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rgaa:
+    name: RGAA v4.1.2 Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Start Next.js application
+        run: |
+          npm run build
+          npm start &
+          npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Run RGAA audit
+        run: npx eqo analyze --threshold 0 --locale fr-FR
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always()  # upload even if the audit step fails
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/rgaa.sarif
+        continue-on-error: true
+```
+
+<Aside type="note" title="Why `if: always()` on the SARIF upload?">
+You want the SARIF file uploaded even if the audit exits with code 1 (i.e., when the threshold is breached). Without `if: always()`, a blocking failure would prevent the annotations from appearing on the PR diff — removing exactly the information developers need to fix the issue.
+</Aside>
+
+---
+
+## Blocking strategies
+
+### Strategy 1 — Non-blocking (observe and report)
+
+**When to use:** When starting Eqo on an existing project, when the team is not yet committed to fixing all issues, or when you want visibility without pressure.
+
+```yaml
+- name: Run RGAA audit
+  uses: kodalabs-io/eqo@v1
+  with:
+    threshold: 0          # never fails
+    upload-sarif: true    # issues still appear as PR annotations
+```
+
+With `threshold: 0`, Eqo always exits with code 0 — CI never fails. But the SARIF upload still annotates your PR diff with every issue as a warning. Developers see the issues inline without the pipeline blocking them.
+
+**What you gain:** Full visibility into accessibility issues on every PR. No friction. A growing awareness of the problem.
+
+### Strategy 2 — Block on `error`-severity issues
+
+**When to use:** After your first audit has identified and fixed all `error`-severity issues, and you want to prevent new `error`s from being introduced.
+
+```yaml
+- name: Run RGAA audit
+  uses: kodalabs-io/eqo@v1
+  with:
+    threshold: 0   # complianceRate doesn't block
+```
+
+In your `rgaa.config.ts`:
+
+```typescript
+thresholds: {
+  complianceRate: 0,
+  failOn: "error",   // block only on error-severity issues
+}
+```
+
+This lets `warning` and `notice` issues through, but fails CI if any `error`-severity RGAA issue is introduced. `error` issues are clear, unambiguous violations — a missing `alt` attribute, a missing form label, a missing page `<title>`. These are never acceptable.
+
+### Strategy 3 — Block on compliance rate (recommended for mature teams)
+
+**When to use:** After you have a known baseline compliance rate and you want to prevent regressions.
+
+```typescript
+// rgaa.config.ts
+thresholds: {
+  complianceRate: 72,   // your current baseline
+  failOn: "threshold",
+}
+```
+
+```yaml
+- name: Run RGAA audit
+  uses: kodalabs-io/eqo@v1
+  with:
+    threshold: 72   # same as config — CLI flag takes precedence
+```
+
+CI fails only if compliance drops *below* 72%. A PR that introduces new issues but stays above 72% still passes. A PR that fixes issues and pushes the rate to 74% passes. The direction is always forward.
+
+### Strategy 4 — Zero-tolerance (target full compliance)
+
+**When to use:** When targeting full RGAA conformance for a legal audit or certification.
+
+```typescript
+thresholds: {
+  complianceRate: 100,
+  failOn: "threshold",
+}
+```
+
+CI fails if *any* applicable criterion is invalidated. Use this only when you are genuinely close to 100% — jumping here from 70% will immediately break your CI and frustrate your team.
+
+---
+
+## Progressive threshold strategy
+
+<Aside type="tip" title="Recommended for most organizations">
+This is the path we recommend for teams that are serious about improving accessibility over time without creating immediate disruption.
+</Aside>
+
+<Steps>
+
+1. **Week 1 — Get your baseline**
+
+   Add Eqo with `threshold: 0`. Run it in CI for two weeks. Let it report without blocking. Observe the compliance rate and the issue list.
+
+   ```typescript
+   thresholds: { complianceRate: 0, failOn: "threshold" }
+   ```
+
+2. **Week 2 — Set the floor**
+
+   Once you know your baseline (e.g., 68%), set the threshold to that value. This locks in the current rate — no regression is now allowed.
+
+   ```typescript
+   thresholds: { complianceRate: 68, failOn: "threshold" }
+   ```
+
+3. **Sprint by sprint — Raise the bar**
+
+   Each sprint, fix a set of issues and raise the threshold by 5–10%. This turns accessibility into a measurable sprint metric — the same way you track code coverage.
+
+   ```typescript
+   // Sprint 1: 68% → 75%
+   thresholds: { complianceRate: 75, failOn: "threshold" }
+
+   // Sprint 2: 75% → 82%
+   thresholds: { complianceRate: 82, failOn: "threshold" }
+   ```
+
+4. **When stable — Add error-severity blocking too**
+
+   Once you're above 90%, also block on any new `error`-severity issue to maintain quality:
+
+   ```typescript
+   thresholds: { complianceRate: 90, failOn: "error" }
+   ```
+
+</Steps>
+
+---
+
+## Full production pipeline
+
+This is a complete workflow for a Next.js project with pnpm, running the audit before every build and deploying only when accessibility passes.
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  accessibility:
+    name: RGAA Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm build
+
+      - name: Start application
+        run: |
+          pnpm start &
+          npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: RGAA Audit
+        id: audit
+        uses: kodalabs-io/eqo@v1
+        with:
+          config: ./rgaa.config.ts
+          threshold: 80          # block if compliance drops below 80%
+          locale: fr-FR
+          upload-sarif: true
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rgaa-report
+          path: reports/rgaa.html
+          retention-days: 30
+```
+
+---
+
+## SARIF and GitHub Code Scanning
+
+When `upload-sarif: true` (the default), Eqo uploads the SARIF report to [GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning). This gives you:
+
+- **Inline annotations** on PR diffs — `error` issues appear as red annotations, `warning` as yellow, directly on the changed lines
+- **Security tab** — a persistent dashboard of all accessibility issues across all commits
+- **PR checks** — a dedicated "Code Scanning" check on every PR
+
+<Aside type="note" title="Required GitHub permissions">
+The `security-events: write` permission is required to upload SARIF. If you're working in a fork or a restricted repository, the upload may fail silently — use `continue-on-error: true` on the upload step to prevent this from blocking the job.
+</Aside>
+
+### What SARIF annotations look like
+
+When Eqo runs in GitHub Actions (`GITHUB_ACTIONS=true`), it also emits [workflow commands](https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions) for inline PR annotations without requiring Code Scanning:
+
+```
+::error file=src/components/HeroBanner.tsx,line=14,col=5,title=RGAA 1.1::img.missing-alt
+::warning file=src/app/page.tsx,line=34,col=9,title=RGAA 9.1::heading.hierarchy
+```
+
+These appear as inline comments on the exact line in your PR diff.
+
+---
+
+## Static-only CI (fast feedback, no browser)
+
+For teams that want fast feedback on every push without the overhead of Playwright, run a static-only job first and add a full audit job for PRs targeting `main`:
+
+```yaml
+jobs:
+  accessibility-static:
+    name: RGAA Static Audit (fast)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+      - name: Static RGAA audit
+        uses: kodalabs-io/eqo@v1
+        with:
+          static-only: true
+          threshold: 0
+
+  accessibility-full:
+    name: RGAA Full Audit
+    runs-on: ubuntu-latest
+    if: github.base_ref == 'main'   # only on PRs to main
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      - run: npm run build && npm start &
+      - run: npx wait-on http://localhost:3000
+      - uses: kodalabs-io/eqo@v1
+        with:
+          threshold: 80
+          upload-sarif: true
+```
+
+This pattern gives developers rapid feedback (static-only, ~10 seconds) on every push, while the more thorough full audit (including Playwright) only runs when a PR targets the main branch.

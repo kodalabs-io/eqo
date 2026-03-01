@@ -1,0 +1,90 @@
+---
+title: Eqo — RGAA v4.1.2 Accessibility Analyzer for Next.js
+description: Automatically audit your Next.js application against all 106 RGAA v4.1.2 criteria. Generate compliance reports, block CI on failure, and publish your accessibility declaration.
+template: splash
+hero:
+  tagline: The honest RGAA v4.1.2 analyzer for Next.js. Automate what can be automated. Flag what can't.
+  actions:
+    - text: Get Started
+      link: /eqo/getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/kodalabs-io/eqo
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Why Eqo
+
+<CardGrid stagger>
+  <Card title="106 RGAA v4.1.2 criteria" icon="list-format">
+    The complete RGAA catalog — every criterion tracked with its automation level clearly stated. No false promises.
+  </Card>
+  <Card title="Two-phase analysis" icon="magnifier">
+    Fast Babel AST static analysis catches issues in your source files. Playwright runtime analysis audits the rendered page in a real Chromium browser.
+  </Card>
+  <Card title="5 report formats" icon="document">
+    JSON for your `/accessibility` page. HTML for your team. SARIF for GitHub Code Scanning. Markdown for PR comments. JUnit for CI dashboards.
+  </Card>
+  <Card title="CI/CD native" icon="rocket">
+    Configurable threshold. Exit code 1 on failure. Inline GitHub Annotations on your PR diff. Or set `threshold: 0` to report without blocking.
+  </Card>
+  <Card title="Programmatic API" icon="puzzle">
+    Use Eqo as a library in your own scripts. Every analysis function and type is exported and fully typed.
+  </Card>
+  <Card title="i18n: en-US & fr-FR" icon="translate">
+    Reports in English or French — built for international teams and French organizations meeting their legal RGAA obligations.
+  </Card>
+</CardGrid>
+
+## What is automated
+
+| Phase | Themes covered |
+|---|---|
+| **Static analysis** (Babel AST) | 1 Images · 2 Frames · 5 Tables · 6 Links · 8 Mandatory · 9 Structure · 11 Forms |
+| **Runtime analysis** (Playwright + axe-core) | 3 Colors · 7 Scripts · 10 Presentation · 12 Navigation · 13 Consultation |
+| **Always manual** | Relevance checks · Video transcriptions · Subjective content |
+
+Eqo automates **~65% of the 106 RGAA criteria**. The remaining ~35% require human judgment and are clearly marked `needs-review` in every report. We never claim more than we can deliver.
+
+## Quick look
+
+```bash
+# Initialize your config
+npx eqo init
+
+# Run the full audit (static + browser)
+npx eqo analyze
+
+# Static analysis only — no browser needed, runs in seconds
+npx eqo analyze --static-only
+
+# With a compliance threshold
+npx eqo analyze --threshold 80
+```
+
+<CardGrid>
+  <LinkCard
+    title="Introduction"
+    description="Understand RGAA, its legal obligations, and Eqo's honest scope."
+    href="/eqo/introduction/"
+  />
+  <LinkCard
+    title="Getting Started"
+    description="Install, configure, and run your first audit in 5 minutes."
+    href="/eqo/getting-started/"
+  />
+  <LinkCard
+    title="Configuration"
+    description="Full reference for rgaa.config.ts — every option explained."
+    href="/eqo/configuration/"
+  />
+  <LinkCard
+    title="CI/CD Integration"
+    description="Block or report — build the right pipeline for your team's maturity."
+    href="/eqo/guides/ci-cd/"
+  />
+</CardGrid>

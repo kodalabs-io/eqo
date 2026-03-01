@@ -1,0 +1,68 @@
+name: Bug Report
+description: Report a reproducible bug or unexpected behavior
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug. Please fill in as much detail as possible to help us reproduce and fix it quickly.
+
+  - type: input
+    id: version
+    attributes:
+      label: eqo version
+      placeholder: "e.g., 0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: "e.g., 22.15.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package-manager
+    attributes:
+      label: Package manager
+      options:
+        - npm
+        - pnpm
+        - bun
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to reproduce the issue
+      placeholder: |
+        1. Create a file with...
+        2. Run `eqo analyze`
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration file (rgaa.config.ts)
+      description: Paste your configuration (remove sensitive values)
+      render: typescript
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output / logs
+      render: shell
