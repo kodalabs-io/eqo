@@ -5,12 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import picomatch from "picomatch";
 import Piscina from "piscina";
-import type {
-  RGAAIssue,
-  StaticConfig,
-  WorkerInput,
-  WorkerOutput,
-} from "../../types.js";
+import type { RGAAIssue, StaticConfig, WorkerInput, WorkerOutput } from "../../types.js";
 import { warn } from "../../utils/log.js";
 import { raceWithTimeout } from "../../utils/race-with-timeout.js";
 import {
@@ -44,12 +39,9 @@ export function compileGlob(pattern: string): GlobMatcher {
 function shouldInclude(
   relativePath: string,
   includeFns: GlobMatcher[],
-  excludeFns: GlobMatcher[]
+  excludeFns: GlobMatcher[],
 ): boolean {
-  return (
-    includeFns.some((fn) => fn(relativePath)) &&
-    !excludeFns.some((fn) => fn(relativePath))
-  );
+  return includeFns.some((fn) => fn(relativePath)) && !excludeFns.some((fn) => fn(relativePath));
 }
 
 /**
@@ -61,7 +53,7 @@ async function* collectFiles(
   dir: string,
   projectRoot: string,
   includeFns: GlobMatcher[],
-  excludeFns: GlobMatcher[]
+  excludeFns: GlobMatcher[],
 ): AsyncGenerator<string> {
   async function* walkDir(current: string): AsyncGenerator<string> {
     const entries = await readdir(current, { withFileTypes: true });
@@ -101,7 +93,7 @@ export interface StaticAnalysisOptions {
 export async function runStaticAnalysis(
   projectRoot: string,
   config: StaticConfig = {},
-  options: StaticAnalysisOptions = {}
+  options: StaticAnalysisOptions = {},
 ): Promise<StaticAnalysisResult> {
   const start = performance.now();
   const useCache = !options.noCache;
@@ -120,9 +112,7 @@ export async function runStaticAnalysis(
   const excludeFns = exclude.map(compileGlob);
 
   // ── Load incremental cache ──────────────────────────────────────────────
-  const cache = useCache
-    ? (await loadCache(projectRoot)) ?? createEmptyCache()
-    : null;
+  const cache = useCache ? ((await loadCache(projectRoot)) ?? createEmptyCache()) : null;
 
   const pool = new Piscina({
     filename: _workerPath,
@@ -143,12 +133,7 @@ export async function runStaticAnalysis(
   let batch: WorkerInput[] = [];
 
   try {
-    for await (const filePath of collectFiles(
-      projectRoot,
-      projectRoot,
-      includeFns,
-      excludeFns
-    )) {
+    for await (const filePath of collectFiles(projectRoot, projectRoot, includeFns, excludeFns)) {
       totalFiles++;
 
       // ── Check cache before dispatching to worker ──────────────────────
@@ -180,9 +165,9 @@ export async function runStaticAnalysis(
             raceWithTimeout(
               pool.run(workItem) as Promise<WorkerOutput>,
               WORKER_TIMEOUT_MS,
-              `Worker timed out after ${WORKER_TIMEOUT_MS}ms`
-            )
-          )
+              `Worker timed out after ${WORKER_TIMEOUT_MS}ms`,
+            ),
+          ),
         );
         allResults.push(...batchResults);
         allFilePaths.push(...batch.map((w) => w.filePath));
@@ -197,26 +182,22 @@ export async function runStaticAnalysis(
           raceWithTimeout(
             pool.run(workItem) as Promise<WorkerOutput>,
             WORKER_TIMEOUT_MS,
-            `Worker timed out after ${WORKER_TIMEOUT_MS}ms`
-          )
-        )
+            `Worker timed out after ${WORKER_TIMEOUT_MS}ms`,
+          ),
+        ),
       );
       allResults.push(...batchResults);
       allFilePaths.push(...batch.map((w) => w.filePath));
     }
   } finally {
-    await raceWithTimeout(
-      pool.destroy(),
-      10_000,
-      "Worker pool destroy timed out after 10s"
-    ).catch((err) => {
-      warn(
-        "core",
-        `Failed to destroy worker pool: ${
-          err instanceof Error ? err.message : String(err)
-        }`
-      );
-    });
+    await raceWithTimeout(pool.destroy(), 10_000, "Worker pool destroy timed out after 10s").catch(
+      (err) => {
+        warn(
+          "core",
+          `Failed to destroy worker pool: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      },
+    );
   }
 
   if (totalFiles === 0) {
@@ -245,23 +226,17 @@ export async function runStaticAnalysis(
     } else {
       failedCount++;
       const fp = allFilePaths[i] ?? "unknown";
-      const reason =
-        result.reason instanceof Error
-          ? result.reason.message
-          : String(result.reason);
+      const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
       warn("static", `Failed: ${path.relative(projectRoot, fp)} — ${reason}`);
     }
   }
   if (failedCount > 0) {
-    warn(
-      "static",
-      `${failedCount}/${allResults.length} file(s) failed to analyze (see above)`
-    );
+    warn("static", `${failedCount}/${allResults.length} file(s) failed to analyze (see above)`);
   }
   if (parseErrorCount > 0) {
     warn(
       "static",
-      `${parseErrorCount}/${allResults.length} file(s) could not be parsed (syntax errors or binary files)`
+      `${parseErrorCount}/${allResults.length} file(s) could not be parsed (syntax errors or binary files)`,
     );
   }
 
@@ -277,9 +252,7 @@ export async function runStaticAnalysis(
     } catch (err) {
       warn(
         "static",
-        `Failed to save analysis cache: ${
-          err instanceof Error ? err.message : String(err)
-        }`
+        `Failed to save analysis cache: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

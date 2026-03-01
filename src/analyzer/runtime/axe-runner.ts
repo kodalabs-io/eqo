@@ -20,7 +20,7 @@ const IMPACT_TO_SEVERITY: Record<ImpactLevel, RGAAIssue["severity"]> = {
 export async function runAxe(
   page: Page,
   pagePath: string,
-  exemptedCriteria: Set<string> = new Set()
+  exemptedCriteria: Set<string> = new Set(),
 ): Promise<RGAAIssue[]> {
   const builder = new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
@@ -35,30 +35,21 @@ export async function runAxe(
       "heading-order",
     ]);
 
-  const results = await raceWithTimeout(
-    builder.analyze(),
-    30_000,
-    "axe-core timed out after 30s"
-  );
+  const results = await raceWithTimeout(builder.analyze(), 30_000, "axe-core timed out after 30s");
   const issues: RGAAIssue[] = [];
 
   for (const violation of results.violations) {
     const rgaaCriteria = getRGAACriteria(violation.id);
 
     // Skip if all mapped criteria are exempted
-    if (
-      rgaaCriteria.length > 0 &&
-      rgaaCriteria.every((c) => exemptedCriteria.has(c))
-    ) {
+    if (rgaaCriteria.length > 0 && rgaaCriteria.every((c) => exemptedCriteria.has(c))) {
       continue;
     }
 
     const primaryCriterion = rgaaCriteria[0];
     // Skip violations with no RGAA mapping rather than creating "unknown" issues
     if (!primaryCriterion) continue;
-    const severity =
-      IMPACT_TO_SEVERITY[(violation.impact as ImpactLevel) ?? "minor"] ??
-      "warning";
+    const severity = IMPACT_TO_SEVERITY[(violation.impact as ImpactLevel) ?? "minor"] ?? "warning";
 
     for (const node of violation.nodes) {
       issues.push({
@@ -79,9 +70,7 @@ export async function runAxe(
         },
         ...(violation.tags.some((t) => t.startsWith("wcag"))
           ? {
-              wcag: violation.tags
-                .filter((t) => t.startsWith("wcag"))
-                .join(", "),
+              wcag: violation.tags.filter((t) => t.startsWith("wcag")).join(", "),
             }
           : {}),
       });

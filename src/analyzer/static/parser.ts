@@ -31,22 +31,8 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   File: ["program"],
   ForInStatement: ["left", "right", "body"],
   ForStatement: ["init", "test", "update", "body"],
-  FunctionDeclaration: [
-    "id",
-    "typeParameters",
-    "params",
-    "predicate",
-    "returnType",
-    "body",
-  ],
-  FunctionExpression: [
-    "id",
-    "typeParameters",
-    "params",
-    "predicate",
-    "returnType",
-    "body",
-  ],
+  FunctionDeclaration: ["id", "typeParameters", "params", "predicate", "returnType", "body"],
+  FunctionExpression: ["id", "typeParameters", "params", "predicate", "returnType", "body"],
   Identifier: ["typeAnnotation", "decorators"],
   IfStatement: ["test", "consequent", "alternate"],
   LabeledStatement: ["label", "body"],
@@ -60,14 +46,7 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   NewExpression: ["callee", "typeParameters", "typeArguments", "arguments"],
   Program: ["directives", "body"],
   ObjectExpression: ["properties"],
-  ObjectMethod: [
-    "decorators",
-    "key",
-    "typeParameters",
-    "params",
-    "returnType",
-    "body",
-  ],
+  ObjectMethod: ["decorators", "key", "typeParameters", "params", "returnType", "body"],
   ObjectProperty: ["decorators", "key", "value"],
   RestElement: ["argument", "typeAnnotation"],
   ReturnStatement: ["argument"],
@@ -86,13 +65,7 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   WithStatement: ["object", "body"],
   AssignmentPattern: ["left", "right", "decorators"],
   ArrayPattern: ["elements", "typeAnnotation"],
-  ArrowFunctionExpression: [
-    "typeParameters",
-    "params",
-    "predicate",
-    "returnType",
-    "body",
-  ],
+  ArrowFunctionExpression: ["typeParameters", "params", "predicate", "returnType", "body"],
   ClassBody: ["body"],
   ClassExpression: [
     "decorators",
@@ -116,13 +89,7 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   ],
   ExportAllDeclaration: ["source", "attributes", "assertions"],
   ExportDefaultDeclaration: ["declaration"],
-  ExportNamedDeclaration: [
-    "declaration",
-    "specifiers",
-    "source",
-    "attributes",
-    "assertions",
-  ],
+  ExportNamedDeclaration: ["declaration", "specifiers", "source", "attributes", "assertions"],
   ExportSpecifier: ["local", "exported"],
   ForOfStatement: ["left", "right", "body"],
   ImportDeclaration: ["specifiers", "source", "attributes", "assertions"],
@@ -131,14 +98,7 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   ImportSpecifier: ["imported", "local"],
   ImportExpression: ["source", "options"],
   MetaProperty: ["meta", "property"],
-  ClassMethod: [
-    "decorators",
-    "key",
-    "typeParameters",
-    "params",
-    "returnType",
-    "body",
-  ],
+  ClassMethod: ["decorators", "key", "typeParameters", "params", "returnType", "body"],
   ObjectPattern: ["decorators", "properties", "typeAnnotation"],
   SpreadElement: ["argument"],
   Super: [],
@@ -151,29 +111,11 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   BigIntLiteral: [],
   ExportNamespaceSpecifier: ["exported"],
   OptionalMemberExpression: ["object", "property"],
-  OptionalCallExpression: [
-    "callee",
-    "typeParameters",
-    "typeArguments",
-    "arguments",
-  ],
+  OptionalCallExpression: ["callee", "typeParameters", "typeArguments", "arguments"],
   ClassProperty: ["decorators", "variance", "key", "typeAnnotation", "value"],
   ClassAccessorProperty: ["decorators", "key", "typeAnnotation", "value"],
-  ClassPrivateProperty: [
-    "decorators",
-    "variance",
-    "key",
-    "typeAnnotation",
-    "value",
-  ],
-  ClassPrivateMethod: [
-    "decorators",
-    "key",
-    "typeParameters",
-    "params",
-    "returnType",
-    "body",
-  ],
+  ClassPrivateProperty: ["decorators", "variance", "key", "typeAnnotation", "value"],
+  ClassPrivateMethod: ["decorators", "key", "typeParameters", "params", "returnType", "body"],
   PrivateName: ["id"],
   StaticBlock: ["body"],
   ImportAttribute: ["key", "value"],
@@ -183,14 +125,7 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   BooleanLiteralTypeAnnotation: [],
   NullLiteralTypeAnnotation: [],
   ClassImplements: ["id", "typeParameters"],
-  DeclareClass: [
-    "id",
-    "typeParameters",
-    "extends",
-    "mixins",
-    "implements",
-    "body",
-  ],
+  DeclareClass: ["id", "typeParameters", "extends", "mixins", "implements", "body"],
   DeclareFunction: ["id", "predicate"],
   DeclareInterface: ["id", "typeParameters", "extends", "body"],
   DeclareModule: ["id", "body"],
@@ -198,22 +133,11 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   DeclareTypeAlias: ["id", "typeParameters", "right"],
   DeclareOpaqueType: ["id", "typeParameters", "supertype"],
   DeclareVariable: ["id"],
-  DeclareExportDeclaration: [
-    "declaration",
-    "specifiers",
-    "source",
-    "attributes",
-  ],
+  DeclareExportDeclaration: ["declaration", "specifiers", "source", "attributes"],
   DeclareExportAllDeclaration: ["source", "attributes"],
   DeclaredPredicate: ["value"],
   ExistsTypeAnnotation: [],
-  FunctionTypeAnnotation: [
-    "typeParameters",
-    "this",
-    "params",
-    "rest",
-    "returnType",
-  ],
+  FunctionTypeAnnotation: ["typeParameters", "this", "params", "rest", "returnType"],
   FunctionTypeParam: ["name", "typeAnnotation"],
   GenericTypeAnnotation: ["id", "typeParameters"],
   InferredPredicate: [],
@@ -226,12 +150,7 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   NullableTypeAnnotation: ["typeAnnotation"],
   NumberLiteralTypeAnnotation: [],
   NumberTypeAnnotation: [],
-  ObjectTypeAnnotation: [
-    "properties",
-    "indexers",
-    "callProperties",
-    "internalSlots",
-  ],
+  ObjectTypeAnnotation: ["properties", "indexers", "callProperties", "internalSlots"],
   ObjectTypeInternalSlot: ["id", "value"],
   ObjectTypeCallProperty: ["value"],
   ObjectTypeIndexer: ["variance", "id", "key", "value"],
@@ -299,24 +218,10 @@ const VISITOR_KEYS: Record<string, readonly string[]> = {
   VoidPattern: [],
   TSParameterProperty: ["parameter"],
   TSDeclareFunction: ["id", "typeParameters", "params", "returnType"],
-  TSDeclareMethod: [
-    "decorators",
-    "key",
-    "typeParameters",
-    "params",
-    "returnType",
-  ],
+  TSDeclareMethod: ["decorators", "key", "typeParameters", "params", "returnType"],
   TSQualifiedName: ["left", "right"],
-  TSCallSignatureDeclaration: [
-    "typeParameters",
-    "parameters",
-    "typeAnnotation",
-  ],
-  TSConstructSignatureDeclaration: [
-    "typeParameters",
-    "parameters",
-    "typeAnnotation",
-  ],
+  TSCallSignatureDeclaration: ["typeParameters", "parameters", "typeAnnotation"],
+  TSConstructSignatureDeclaration: ["typeParameters", "parameters", "typeAnnotation"],
   TSPropertySignature: ["key", "typeAnnotation"],
   TSMethodSignature: ["key", "typeParameters", "parameters", "typeAnnotation"],
   TSIndexSignature: ["parameters", "typeAnnotation"],
@@ -412,7 +317,7 @@ export function parseFile(source: string, filePath: string): File | null {
  */
 export function walk(
   node: Node | null | undefined,
-  visitors: Partial<Record<string, (node: Node) => void>>
+  visitors: Partial<Record<string, (node: Node) => void>>,
 ): void {
   if (!node || typeof node !== "object") return;
 
@@ -432,11 +337,7 @@ export function walk(
           walk(item as Node, visitors);
         }
       }
-    } else if (
-      child &&
-      typeof child === "object" &&
-      "type" in (child as object)
-    ) {
+    } else if (child && typeof child === "object" && "type" in (child as object)) {
       walk(child as Node, visitors);
     }
   }
@@ -444,12 +345,7 @@ export function walk(
 
 // ─── JSX helpers ─────────────────────────────────────────────────────────────
 
-import type {
-  JSXAttribute,
-  JSXElement,
-  JSXOpeningElement,
-  StringLiteral,
-} from "@babel/types";
+import type { JSXAttribute, JSXElement, JSXOpeningElement, StringLiteral } from "@babel/types";
 
 /**
  * Get the tag name of a JSX element.
@@ -470,10 +366,7 @@ export function getTagName(node: JSXOpeningElement): string | null {
 /**
  * Get a JSX attribute by name, case-insensitive.
  */
-export function getAttr(
-  node: JSXOpeningElement,
-  attrName: string
-): JSXAttribute | null {
+export function getAttr(node: JSXOpeningElement, attrName: string): JSXAttribute | null {
   const lower = attrName.toLowerCase();
   for (const attr of node.attributes) {
     if (attr.type === "JSXAttribute") {
@@ -491,9 +384,7 @@ export function getAttr(
  * Get the string value of a JSX attribute.
  * Returns null if the value is dynamic (JSX expression) or missing.
  */
-export function getAttrStringValue(
-  attr: JSXAttribute | null | undefined
-): string | null {
+export function getAttrStringValue(attr: JSXAttribute | null | undefined): string | null {
   if (!attr?.value) return null;
   if (attr.value.type === "StringLiteral") return attr.value.value;
   // Template literals, expressions → treat as dynamic (we cannot inspect at static time)
@@ -546,9 +437,7 @@ export function getTextContent(node: JSXElement): string | null {
 export function nodeLoc(node: {
   loc?: { start: { line: number; column: number } } | null;
 }): { line: number; column: number } | Record<never, never> {
-  return node.loc
-    ? { line: node.loc.start.line, column: node.loc.start.column }
-    : {};
+  return node.loc ? { line: node.loc.start.line, column: node.loc.start.column } : {};
 }
 
 /**
@@ -578,7 +467,7 @@ export const MAX_ELEMENT_SERIALIZATION_LENGTH = 500;
  */
 export function serializeElement(
   node: JSXOpeningElement,
-  maxLen = MAX_ELEMENT_SERIALIZATION_LENGTH
+  maxLen = MAX_ELEMENT_SERIALIZATION_LENGTH,
 ): string {
   const tag = getTagName(node) ?? "unknown";
   const attrs = node.attributes
@@ -586,10 +475,7 @@ export function serializeElement(
     .slice(0, 20) // cap attribute count to prevent unbounded output
     .map((a) => {
       const attr = a as JSXAttribute;
-      const name =
-        attr.name.type === "JSXIdentifier"
-          ? attr.name.name
-          : attr.name.name.name;
+      const name = attr.name.type === "JSXIdentifier" ? attr.name.name : attr.name.name.name;
       if (!attr.value) return name;
       if (attr.value.type === "StringLiteral") {
         const escaped = attr.value.value

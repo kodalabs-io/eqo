@@ -1,11 +1,7 @@
 // ─── Enumerations ────────────────────────────────────────────────────────────
 
 export type AutomationLevel = "full" | "partial" | "manual";
-export type CriterionStatus =
-  | "validated"
-  | "invalidated"
-  | "not-applicable"
-  | "needs-review";
+export type CriterionStatus = "validated" | "invalidated" | "not-applicable" | "needs-review";
 export type IssueSeverity = "error" | "warning" | "notice";
 export type AnalysisPhase = "static" | "runtime";
 export type WCAGLevel = "A" | "AA";

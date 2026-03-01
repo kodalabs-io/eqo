@@ -34,9 +34,7 @@ export default defineConfig([
             for (const file of result.outputFiles ?? []) {
               if (file.path.endsWith("cli/index.js")) {
                 file.contents = new TextEncoder().encode(
-                  `#!/usr/bin/env node\n${new TextDecoder().decode(
-                    file.contents
-                  )}`
+                  `#!/usr/bin/env node\n${new TextDecoder().decode(file.contents)}`,
                 );
               }
             }
@@ -63,10 +61,9 @@ export default defineConfig([
           // (binary deps + optional chromium-bidi peer dep)
           build.onResolve(
             {
-              filter:
-                /^(playwright(?:-core)?|@playwright\/|@axe-core\/playwright|chromium-bidi)/,
+              filter: /^(playwright(?:-core)?|@playwright\/|@axe-core\/playwright|chromium-bidi)/,
             },
-            (args) => ({ path: args.path, external: true })
+            (args) => ({ path: args.path, external: true }),
           );
           // jiti can't be bundled (dynamic eval-based transpilation)
           build.onResolve({ filter: /^jiti$/ }, (args) => ({

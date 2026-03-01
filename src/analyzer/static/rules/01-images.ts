@@ -1,97 +1,62 @@
 import type { JSXElement, JSXOpeningElement } from "@babel/types";
 import type { RGAAIssue } from "../../../types.js";
-import {
-  getAttr,
-  getAttrMap,
-  getAttrStringValue,
-  getTagName,
-  walk,
-} from "../parser.js";
+import { getAttr, getAttrMap, getAttrStringValue, getTagName, walk } from "../parser.js";
 import { createStaticIssue, defineRule } from "./helpers.js";
 
 // ─── Rule: images need text alternatives (Criterion 1.1) ─────────────────────
 // Severity: error — WCAG 1.1.1 Level A, images without alt are a hard failure.
 
-const imagesNeedAlt = defineRule(
-  { id: "images/alt-present", criteria: ["1.1"] },
-  (context) => {
-    const { filePath, ast } = context;
-    const issues: RGAAIssue[] = [];
+const imagesNeedAlt = defineRule({ id: "images/alt-present", criteria: ["1.1"] }, (context) => {
+  const { filePath, ast } = context;
+  const issues: RGAAIssue[] = [];
 
-    walk(ast, {
-      // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: covers img, input[type=image], svg[role=img], and generic role=img elements
-      JSXOpeningElement(rawNode) {
-        const node = rawNode as unknown as JSXOpeningElement;
-        const tag = getTagName(node);
+  walk(ast, {
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: covers img, input[type=image], svg[role=img], and generic role=img elements
+    JSXOpeningElement(rawNode) {
+      const node = rawNode as unknown as JSXOpeningElement;
+      const tag = getTagName(node);
 
-        const attrs = getAttrMap(node);
+      const attrs = getAttrMap(node);
 
-        // <img> without alt
-        if (tag === "img") {
-          if (
-            !attrs.has("alt") &&
-            !attrs.has("aria-label") &&
-            !attrs.has("aria-labelledby")
-          ) {
+      // <img> without alt
+      if (tag === "img") {
+        if (!attrs.has("alt") && !attrs.has("aria-label") && !attrs.has("aria-labelledby")) {
+          issues.push(
+            createStaticIssue({
+              node,
+              filePath,
+              criterionId: "1.1",
+              testId: "1.1.1",
+              messageKey: "img.missing-alt",
+              wcag: "1.1.1",
+            }),
+          );
+        }
+        return;
+      }
+
+      // <input type="image"> without alt
+      if (tag === "input") {
+        const typeVal = getAttrStringValue(attrs.get("type"));
+        if (typeVal === "image") {
+          if (!attrs.has("alt") && !attrs.has("aria-label") && !attrs.has("aria-labelledby")) {
             issues.push(
               createStaticIssue({
                 node,
                 filePath,
                 criterionId: "1.1",
-                testId: "1.1.1",
-                messageKey: "img.missing-alt",
+                testId: "1.1.3",
+                messageKey: "img.input-image-missing-alt",
                 wcag: "1.1.1",
-              })
+              }),
             );
           }
-          return;
         }
+        return;
+      }
 
-        // <input type="image"> without alt
-        if (tag === "input") {
-          const typeVal = getAttrStringValue(attrs.get("type"));
-          if (typeVal === "image") {
-            if (
-              !attrs.has("alt") &&
-              !attrs.has("aria-label") &&
-              !attrs.has("aria-labelledby")
-            ) {
-              issues.push(
-                createStaticIssue({
-                  node,
-                  filePath,
-                  criterionId: "1.1",
-                  testId: "1.1.3",
-                  messageKey: "img.input-image-missing-alt",
-                  wcag: "1.1.1",
-                })
-              );
-            }
-          }
-          return;
-        }
-
-        // <svg role="img"> without accessible name
-        if (tag === "svg") {
-          const roleVal = getAttrStringValue(attrs.get("role"));
-          if (roleVal === "img") {
-            if (!attrs.has("aria-label") && !attrs.has("aria-labelledby")) {
-              issues.push(
-                createStaticIssue({
-                  node,
-                  filePath,
-                  criterionId: "1.1",
-                  testId: "1.1.5",
-                  messageKey: "img.svg-missing-accessible-name",
-                  wcag: "1.1.1",
-                })
-              );
-            }
-          }
-          return;
-        }
-
-        // Element with role="img" (any tag)
+      // <svg role="img"> without accessible name
+      if (tag === "svg") {
         const roleVal = getAttrStringValue(attrs.get("role"));
         if (roleVal === "img") {
           if (!attrs.has("aria-label") && !attrs.has("aria-labelledby")) {
@@ -100,19 +65,37 @@ const imagesNeedAlt = defineRule(
                 node,
                 filePath,
                 criterionId: "1.1",
-                testId: "1.1.1",
-                messageKey: "img.missing-alt-on-role-img",
+                testId: "1.1.5",
+                messageKey: "img.svg-missing-accessible-name",
                 wcag: "1.1.1",
-              })
+              }),
             );
           }
         }
-      },
-    });
+        return;
+      }
 
-    return issues;
-  }
-);
+      // Element with role="img" (any tag)
+      const roleVal = getAttrStringValue(attrs.get("role"));
+      if (roleVal === "img") {
+        if (!attrs.has("aria-label") && !attrs.has("aria-labelledby")) {
+          issues.push(
+            createStaticIssue({
+              node,
+              filePath,
+              criterionId: "1.1",
+              testId: "1.1.1",
+              messageKey: "img.missing-alt-on-role-img",
+              wcag: "1.1.1",
+            }),
+          );
+        }
+      }
+    },
+  });
+
+  return issues;
+});
 
 // ─── Rule: decorative SVGs must be hidden (Criterion 1.2) ────────────────────
 // Severity: notice — requires human judgment about whether the SVG is decorative
@@ -134,12 +117,7 @@ const decorativeSvgMustBeHidden = defineRule(
         const ariaLabel = getAttr(node, "aria-label");
         const ariaLabelledby = getAttr(node, "aria-labelledby");
 
-        if (
-          role !== "img" &&
-          ariaHidden !== "true" &&
-          !ariaLabel &&
-          !ariaLabelledby
-        ) {
+        if (role !== "img" && ariaHidden !== "true" && !ariaLabel && !ariaLabelledby) {
           issues.push(
             createStaticIssue({
               node,
@@ -149,14 +127,14 @@ const decorativeSvgMustBeHidden = defineRule(
               severity: "notice",
               messageKey: "img.decorative-svg-not-hidden",
               wcag: "1.1.1",
-            })
+            }),
           );
         }
       },
     });
 
     return issues;
-  }
+  },
 );
 
 // ─── Rule: <figcaption> must be inside <figure> (Criterion 1.9) ──────────────
@@ -202,18 +180,14 @@ const figcaptionInFigure = defineRule(
               messageKey: "img.figure-missing-img",
               remediationKey: "img.missing-alt",
               wcag: "1.1.1",
-            })
+            }),
           );
         }
       },
     });
 
     return issues;
-  }
+  },
 );
 
-export const imageRules = [
-  imagesNeedAlt,
-  decorativeSvgMustBeHidden,
-  figcaptionInFigure,
-];
+export const imageRules = [imagesNeedAlt, decorativeSvgMustBeHidden, figcaptionInFigure];

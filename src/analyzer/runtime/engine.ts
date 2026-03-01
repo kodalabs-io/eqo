@@ -1,10 +1,5 @@
 import type { Browser, Page } from "playwright";
-import type {
-  ExemptionConfig,
-  PageConfig,
-  PageResult,
-  RGAAIssue,
-} from "../../types.js";
+import type { ExemptionConfig, PageConfig, PageResult, RGAAIssue } from "../../types.js";
 import { error as logError, warn } from "../../utils/log.js";
 import { raceWithTimeout } from "../../utils/race-with-timeout.js";
 import { issueId } from "../static/rules/helpers.js";
@@ -23,7 +18,7 @@ async function getChromium(): Promise<typeof import("playwright").chromium> {
     ) {
       throw new Error(
         "[eqo] Runtime analysis requires playwright.\n" +
-          "Install: npm install playwright @axe-core/playwright && npx playwright install chromium"
+          "Install: npm install playwright @axe-core/playwright && npx playwright install chromium",
       );
     }
     throw err;
@@ -55,21 +50,19 @@ export interface RuntimeAnalysisResult {
 async function closeWithTimeout(
   closeCall: Promise<void> | undefined,
   label: string,
-  timeoutMs = 5_000
+  timeoutMs = 5_000,
 ): Promise<void> {
   if (!closeCall) return;
-  await raceWithTimeout(
-    closeCall,
-    timeoutMs,
-    `${label} timed out after ${timeoutMs}ms`
-  ).catch((err) => {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("timed out")) {
-      warn("runtime", `${msg} (usually harmless)`);
-    } else {
-      logError("runtime", `Unexpected error during ${label}: ${msg}`);
-    }
-  });
+  await raceWithTimeout(closeCall, timeoutMs, `${label} timed out after ${timeoutMs}ms`).catch(
+    (err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("timed out")) {
+        warn("runtime", `${msg} (usually harmless)`);
+      } else {
+        logError("runtime", `Unexpected error during ${label}: ${msg}`);
+      }
+    },
+  );
 }
 
 async function analyzePage(
@@ -77,7 +70,7 @@ async function analyzePage(
   normalizedBase: string,
   pageConfig: PageConfig,
   exemptedCriteria: Set<string>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<{ issues: RGAAIssue[]; page: PageResult }> {
   const pagePath = normalizePagePath(pageConfig.path);
   const url = `${normalizedBase}${pagePath}`;
@@ -98,19 +91,15 @@ async function analyzePage(
     if (signal?.aborted) throw new Error("Aborted");
 
     // Wait for network to settle after initial load, with a shorter timeout
-    await page
-      .waitForLoadState("networkidle", { timeout: NETWORK_IDLE_TIMEOUT })
-      .catch((err) => {
-        // Only log non-timeout errors; timeout is expected for SSE / long-poll connections
-        if (!(err instanceof Error && err.message.includes("Timeout"))) {
-          warn(
-            "runtime",
-            `networkidle wait failed: ${
-              err instanceof Error ? err.message : String(err)
-            }`
-          );
-        }
-      });
+    await page.waitForLoadState("networkidle", { timeout: NETWORK_IDLE_TIMEOUT }).catch((err) => {
+      // Only log non-timeout errors; timeout is expected for SSE / long-poll connections
+      if (!(err instanceof Error && err.message.includes("Timeout"))) {
+        warn(
+          "runtime",
+          `networkidle wait failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    });
 
     const title = await page.title().catch(() => undefined);
 
@@ -172,10 +161,7 @@ const SELECTOR_CHECKS: SelectorCheck[] = [
  * RGAA-specific validation. Each check is individually guarded so one
  * failure does not prevent the remaining checks from running.
  */
-async function runCustomChecks(
-  page: Page,
-  pagePath: string
-): Promise<RGAAIssue[]> {
+async function runCustomChecks(page: Page, pagePath: string): Promise<RGAAIssue[]> {
   const issues: RGAAIssue[] = [];
 
   // ── Selector-based checks (declarative) ───────────────────────────────────
@@ -200,7 +186,7 @@ async function runCustomChecks(
         "runtime",
         `check ${check.criterionId} skipped for ${pagePath}: ${
           err instanceof Error ? err.message : String(err)
-        }`
+        }`,
       );
     }
   }
@@ -223,7 +209,7 @@ async function runCustomChecks(
         return Array.from(duplicates);
       }),
       10_000,
-      "page.evaluate timed out after 10s"
+      "page.evaluate timed out after 10s",
     );
     for (const dupId of duplicateIds) {
       issues.push({
@@ -242,9 +228,7 @@ async function runCustomChecks(
   } catch (err) {
     warn(
       "runtime",
-      `check 8.2 skipped for ${pagePath}: ${
-        err instanceof Error ? err.message : String(err)
-      }`
+      `check 8.2 skipped for ${pagePath}: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 
@@ -258,26 +242,21 @@ export async function runRuntimeAnalysis(
   baseUrl: string,
   pages: PageConfig[],
   exemptions: ExemptionConfig[] = [],
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<RuntimeAnalysisResult> {
   const start = performance.now();
 
   // Validate baseUrl protocol
   if (!URL_PROTOCOL_RE.test(baseUrl)) {
     throw new Error(
-      `[eqo:runtime] baseUrl must start with http:// or https://, got: "${baseUrl.slice(
-        0,
-        50
-      )}"`
+      `[eqo:runtime] baseUrl must start with http:// or https://, got: "${baseUrl.slice(0, 50)}"`,
     );
   }
 
   // Validate and normalize page paths
   for (const page of pages) {
     if (page.path.includes("://") || page.path.startsWith("//")) {
-      throw new Error(
-        `[eqo:runtime] Page path must be relative, got: "${page.path}"`
-      );
+      throw new Error(`[eqo:runtime] Page path must be relative, got: "${page.path}"`);
     }
     normalizePagePath(page.path); // throws on traversal attempts
   }
@@ -306,23 +285,15 @@ export async function runRuntimeAnalysis(
 
       const batchResults = await Promise.allSettled(
         batch.map((pageConfig) =>
-          analyzePage(
-            browser,
-            normalizedBase,
-            pageConfig,
-            exemptedCriteria,
-            signal
-          )
-        )
+          analyzePage(browser, normalizedBase, pageConfig, exemptedCriteria, signal),
+        ),
       );
 
       for (let j = 0; j < batchResults.length; j++) {
         const result = batchResults[j];
         const pageConfig = batch[j];
         if (!result || !pageConfig) continue;
-        const pagePath = pageConfig.path.startsWith("/")
-          ? pageConfig.path
-          : `/${pageConfig.path}`;
+        const pagePath = pageConfig.path.startsWith("/") ? pageConfig.path : `/${pageConfig.path}`;
         const url = `${normalizedBase}${pagePath}`;
 
         if (result.status === "fulfilled") {
@@ -330,9 +301,7 @@ export async function runRuntimeAnalysis(
           allPageResults.push(result.value.page);
         } else {
           const message =
-            result.reason instanceof Error
-              ? result.reason.message
-              : String(result.reason);
+            result.reason instanceof Error ? result.reason.message : String(result.reason);
           warn("runtime", `could not analyze ${url} — ${message}`);
           allPageResults.push({
             url,

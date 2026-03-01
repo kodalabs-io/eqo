@@ -28,9 +28,7 @@ beforeAll(async () => {
 
 describe("SAFE_URL regex", () => {
   it("accepts valid https URLs", () => {
-    expect(
-      SAFE_URL.test("https://dequeuniversity.com/rules/axe/4.9/image-alt")
-    ).toBe(true);
+    expect(SAFE_URL.test("https://dequeuniversity.com/rules/axe/4.9/image-alt")).toBe(true);
     expect(SAFE_URL.test("https://www.w3.org/TR/WCAG21/")).toBe(true);
     expect(SAFE_URL.test("http://example.com/docs")).toBe(true);
   });

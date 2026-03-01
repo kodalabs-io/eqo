@@ -1,11 +1,7 @@
 import { getTranslations, interpolate } from "../i18n/index.js";
 import type { OutputConfig, RGAAReport } from "../types.js";
 import { escapeHtml } from "./escaping.js";
-import {
-  getRemediationLinkText,
-  resolveIssueMessage,
-  resolveRemediation,
-} from "./issue-format.js";
+import { getRemediationLinkText, resolveIssueMessage, resolveRemediation } from "./issue-format.js";
 import { getComplianceLevel } from "./thresholds.js";
 import { writeOutputFile } from "./write-output.js";
 
@@ -22,25 +18,18 @@ function statusClass(status: string): string {
   }
 }
 
-function statusLabel(
-  status: string,
-  t: ReturnType<typeof getTranslations>
-): string {
+function statusLabel(status: string, t: ReturnType<typeof getTranslations>): string {
   return t.criterionStatus[status] ?? status;
 }
 
 function complianceColor(pctValue: number): string {
   const level = getComplianceLevel(pctValue);
-  return level === "green"
-    ? "#22c55e"
-    : level === "yellow"
-    ? "#f59e0b"
-    : "#ef4444";
+  return level === "green" ? "#22c55e" : level === "yellow" ? "#f59e0b" : "#ef4444";
 }
 
 export async function writeHtmlReport(
   report: RGAAReport,
-  outputConfig: OutputConfig
+  outputConfig: OutputConfig,
 ): Promise<void> {
   const t = getTranslations(report.meta.locale);
   const compliancePct = Math.round(report.summary.complianceRate * 100);
@@ -56,9 +45,7 @@ export async function writeHtmlReport(
         const st = statusClass(c.status);
         const label = statusLabel(c.status, t);
         const issuesBadge =
-          c.issueCount > 0
-            ? `<span class="badge badge-error">${c.issueCount}</span>`
-            : "";
+          c.issueCount > 0 ? `<span class="badge badge-error">${c.issueCount}</span>` : "";
         // criterion ID cell is a row header (scope="row") for correct AT table navigation
         return `<tr><th scope="row"><code>${c.id}</code></th><td>${title}</td><td><span class="${st}">${label}</span>${issuesBadge}</td></tr>`;
       });
@@ -67,13 +54,11 @@ export async function writeHtmlReport(
       <details class="theme-block">
         <summary>
           <span class="theme-name">${theme.id}. ${escapeHtml(themeName)}</span>
-          <span class="theme-rate" style="color:${complianceColor(
-            themePct
-          )}">${themePct}%</span>
+          <span class="theme-rate" style="color:${complianceColor(themePct)}">${themePct}%</span>
         </summary>
         <table class="criteria-table">
           <thead><tr><th scope="col">ID</th><th scope="col">${escapeHtml(
-            t.report.criterion
+            t.report.criterion,
           )}</th><th scope="col">Status</th></tr></thead>
           <tbody>${criteriaRows.join("")}</tbody>
         </table>
@@ -99,34 +84,26 @@ export async function writeHtmlReport(
             const linkText = getRemediationLinkText(rawFix);
             const fix = isUrl
               ? `<a href="${escapeHtml(
-                  rawFix
+                  rawFix,
                 )}" target="_blank" rel="noopener noreferrer">${linkText} ↗</a>`
               : escapeHtml(interpolate(rawFix, issue.messageContext));
             const location = [
               issue.file &&
-                `<code>${escapeHtml(issue.file)}${
-                  issue.line ? `:${issue.line}` : ""
-                }</code>`,
+                `<code>${escapeHtml(issue.file)}${issue.line ? `:${issue.line}` : ""}</code>`,
               issue.page && `Page: <code>${escapeHtml(issue.page)}</code>`,
             ]
               .filter(Boolean)
               .join(" ");
             const element = issue.element
-              ? `<pre class="element-preview">${escapeHtml(
-                  issue.element
-                )}</pre>`
+              ? `<pre class="element-preview">${escapeHtml(issue.element)}</pre>`
               : "";
             return `
           <div class="issue issue-${issue.severity}">
             <div class="issue-header">
-              <span class="issue-criterion">RGAA ${escapeHtml(
-                issue.criterionId
+              <span class="issue-criterion">RGAA ${escapeHtml(issue.criterionId)}</span>
+              <span class="issue-severity severity-${issue.severity}">${escapeHtml(
+                t.severity[issue.severity] ?? issue.severity,
               )}</span>
-              <span class="issue-severity severity-${
-                issue.severity
-              }">${escapeHtml(
-              t.severity[issue.severity] ?? issue.severity
-            )}</span>
               <span class="issue-phase">${escapeHtml(issue.phase)}</span>
             </div>
             <p class="issue-message">${msg}</p>
@@ -222,9 +199,7 @@ export async function writeHtmlReport(
             ? `<strong>${escapeHtml(report.meta.projectName)}</strong> — `
             : ""
         }
-        ${escapeHtml(t.report.generated)}: ${new Date(
-    report.meta.generatedAt
-  ).toLocaleString()} —
+        ${escapeHtml(t.report.generated)}: ${new Date(report.meta.generatedAt).toLocaleString()} —
         @kodalabs-io/eqo v${escapeHtml(report.meta.toolVersion)}
       </div>
     </header>
@@ -255,15 +230,15 @@ export async function writeHtmlReport(
     ${themeRows}
 
     <h2 class="section-title" id="issues">${escapeHtml(t.report.issues)} (${
-    report.issues.length
-  })</h2>
+      report.issues.length
+    })</h2>
     ${issuesSection}
 
     <div class="disclaimer">${escapeHtml(t.report.automationDisclaimer)}</div>
 
     <footer>
       Generated by <a href="https://github.com/kodalabs-io/eqo">@kodalabs-io/eqo</a> v${escapeHtml(
-        report.meta.toolVersion
+        report.meta.toolVersion,
       )}
     </footer>
   </main>

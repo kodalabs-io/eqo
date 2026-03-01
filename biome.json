@@ -38,6 +38,18 @@
       "semicolons": "always"
     }
   },
+  "overrides": [
+    {
+      "includes": ["tests/**/*.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ],
   "files": {
     "includes": [
       "**",

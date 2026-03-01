@@ -77,7 +77,7 @@ function issueToLevel(issue: RGAAIssue): SarifResult["level"] {
 
 export async function writeSarifReport(
   report: RGAAReport,
-  outputConfig: OutputConfig
+  outputConfig: OutputConfig,
 ): Promise<void> {
   // Build unique rules from criteria
   const rulesMap = new Map<string, SarifRule>();
@@ -121,9 +121,7 @@ export async function writeSarifReport(
                 ? {
                     region: {
                       startLine: issue.line,
-                      ...(issue.column !== undefined
-                        ? { startColumn: issue.column }
-                        : {}),
+                      ...(issue.column !== undefined ? { startColumn: issue.column } : {}),
                     },
                   }
                 : {}),

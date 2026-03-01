@@ -1,11 +1,6 @@
 import type { File, JSXOpeningElement } from "@babel/types";
 import { escapeHtml } from "../../../reporter/escaping.js";
-import type {
-  IssueSeverity,
-  RGAAIssue,
-  StaticRule,
-  StaticRuleContext,
-} from "../../../types.js";
+import type { IssueSeverity, RGAAIssue, StaticRule, StaticRuleContext } from "../../../types.js";
 import { nodeLoc, serializeElement } from "../parser.js";
 
 /** Maximum character length for sanitized context values. */
@@ -32,7 +27,7 @@ function sanitizeContextValue(value: string): string {
  */
 export function defineRule(
   meta: { id: string; criteria: string[] },
-  check: (ctx: StaticRuleContext & { ast: File }) => RGAAIssue[]
+  check: (ctx: StaticRuleContext & { ast: File }) => RGAAIssue[],
 ): StaticRule {
   return {
     ...meta,
@@ -62,10 +57,7 @@ export function createStaticIssue(opts: {
   // Sanitize messageContext values at the boundary to prevent XSS in reporters
   const sanitizedContext = rest.messageContext
     ? Object.fromEntries(
-        Object.entries(rest.messageContext).map(([k, v]) => [
-          k,
-          sanitizeContextValue(v),
-        ])
+        Object.entries(rest.messageContext).map(([k, v]) => [k, sanitizeContextValue(v)]),
       )
     : undefined;
   return {

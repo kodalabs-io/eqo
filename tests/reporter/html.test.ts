@@ -131,7 +131,7 @@ describe("writeHtmlReport()", () => {
             ],
           },
         ],
-      })
+      }),
     );
     expect(html).toContain('<th scope="row"');
   });

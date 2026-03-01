@@ -1,8 +1,4 @@
-import {
-  CRITERIA_BY_ID,
-  THEMES,
-  TOTAL_CRITERIA,
-} from "../criteria/rgaa-4.1.2.js";
+import { CRITERIA_BY_ID, THEMES, TOTAL_CRITERIA } from "../criteria/rgaa-4.1.2.js";
 import type {
   CriterionResult,
   KodaRGAAConfig,
@@ -17,9 +13,7 @@ import { runRuntimeAnalysis } from "./runtime/engine.js";
 import { runStaticAnalysis } from "./static/engine.js";
 
 declare const __TOOL_VERSION__: string | undefined;
-const TOOL_VERSION =
-  (typeof __TOOL_VERSION__ !== "undefined" ? __TOOL_VERSION__ : null) ??
-  "0.1.0";
+const TOOL_VERSION = (typeof __TOOL_VERSION__ !== "undefined" ? __TOOL_VERSION__ : null) ?? "0.1.0";
 
 /**
  * Determine the status of a criterion based on its issues and automation level.
@@ -27,7 +21,7 @@ const TOOL_VERSION =
 function resolveCriterionStatus(
   criterionId: string,
   issuesByCriterion: Map<string, RGAAIssue[]>,
-  exemptedCriteria: Set<string>
+  exemptedCriteria: Set<string>,
 ): CriterionResult {
   const criterion = CRITERIA_BY_ID[criterionId];
   if (!criterion) {
@@ -66,9 +60,7 @@ function resolveCriterionStatus(
   }
 
   const hasErrors = criterionIssues.some((i) => i.severity === "error");
-  const status: CriterionResult["status"] = hasErrors
-    ? "invalidated"
-    : "validated";
+  const status: CriterionResult["status"] = hasErrors ? "invalidated" : "validated";
 
   // Single-pass classification: split issues into axe (criterion-level) and per-test buckets
   const axeIssues: RGAAIssue[] = [];
@@ -90,8 +82,7 @@ function resolveCriterionStatus(
     if (!t.automated) return { id: t.id, status: reviewStatus };
     const testIssues = issuesByTest.get(t.id);
     // A test fails if it has direct issues, or if any axe issue exists for this criterion
-    const hasFail =
-      (testIssues?.some((i) => i.severity === "error") ?? false) || hasAxeError;
+    const hasFail = (testIssues?.some((i) => i.severity === "error") ?? false) || hasAxeError;
     const testStatus: TestResult["status"] = hasFail ? "fail" : "pass";
     return { id: t.id, status: testStatus };
   });
@@ -110,11 +101,9 @@ function resolveCriterionStatus(
 export function buildReport(
   issues: RGAAIssue[],
   pages: RGAAReport["pages"],
-  config: KodaRGAAConfig
+  config: KodaRGAAConfig,
 ): RGAAReport {
-  const exemptedCriteria = new Set(
-    (config.exemptions ?? []).map((e) => e.criterion)
-  );
+  const exemptedCriteria = new Set((config.exemptions ?? []).map((e) => e.criterion));
 
   // Pre-index issues by criterionId for O(1) lookups instead of O(n) per criterion
   const issuesByCriterion = new Map<string, RGAAIssue[]>();
@@ -126,15 +115,13 @@ export function buildReport(
 
   const themeResults: ThemeResult[] = THEMES.map((theme) => {
     const criteriaResults = theme.criteria.map((c) =>
-      resolveCriterionStatus(c.id, issuesByCriterion, exemptedCriteria)
+      resolveCriterionStatus(c.id, issuesByCriterion, exemptedCriteria),
     );
 
     const applicableCriteria = criteriaResults.filter(
-      (c) => c.status !== "not-applicable" && c.status !== "needs-review"
+      (c) => c.status !== "not-applicable" && c.status !== "needs-review",
     );
-    const validatedCount = applicableCriteria.filter(
-      (c) => c.status === "validated"
-    ).length;
+    const validatedCount = applicableCriteria.filter((c) => c.status === "validated").length;
 
     // Default to 0 when nothing was measurable (not 1/100%) to avoid false positives
     const complianceRate =
@@ -174,17 +161,14 @@ export function buildReport(
   }
 
   // Default to 0 when nothing was measurable to avoid misleading 100% compliance
-  const complianceRate =
-    applicable > 0 ? Math.max(0, Math.min(1, validated / applicable)) : 0;
+  const complianceRate = applicable > 0 ? Math.max(0, Math.min(1, validated / applicable)) : 0;
 
   return {
     meta: {
       rgaaVersion: "4.1.2",
       toolVersion: TOOL_VERSION,
       generatedAt: new Date().toISOString(),
-      ...(config.projectName !== undefined
-        ? { projectName: config.projectName }
-        : {}),
+      ...(config.projectName !== undefined ? { projectName: config.projectName } : {}),
       analyzedPages: config.pages.map((p) => p.path),
       locale: config.locale ?? "en-US",
     },
@@ -219,7 +203,7 @@ export interface AnalysisOptions {
  */
 export async function analyze(
   config: KodaRGAAConfig,
-  options: AnalysisOptions = {}
+  options: AnalysisOptions = {},
 ): Promise<RGAAReport> {
   const projectRoot = options.projectRoot ?? process.cwd();
   const issueArrays: RGAAIssue[][] = [];
@@ -238,7 +222,7 @@ export async function analyze(
         config.baseUrl,
         config.pages,
         config.exemptions,
-        options.signal
+        options.signal,
       );
       issueArrays.push(runtimeResult.issues);
       pageResults = runtimeResult.pages;
@@ -248,7 +232,7 @@ export async function analyze(
         "core",
         `Runtime analysis failed: ${
           err instanceof Error ? err.message : String(err)
-        }. Continuing with static-only results.`
+        }. Continuing with static-only results.`,
       );
     }
   }

@@ -6,17 +6,10 @@ import { join } from "node:path";
  * Covers prototype pollution and basic config loading.
  */
 import { describe, expect, it } from "vitest";
-import {
-  generateDefaultConfig,
-  loadConfig,
-  resolveConfigPath,
-} from "../../src/config/loader.js";
+import { generateDefaultConfig, loadConfig, resolveConfigPath } from "../../src/config/loader.js";
 
 function makeTmpDir(): string {
-  const dir = join(
-    tmpdir(),
-    `eqo-test-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  );
+  const dir = join(tmpdir(), `eqo-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -42,7 +35,7 @@ describe("resolveConfigPath()", () => {
           baseUrl: "http://localhost:3000",
           pages: [{ path: "/" }],
           output: [{ format: "json", path: "./report.json" }],
-        })
+        }),
       );
       const result = resolveConfigPath(dir);
       expect(result).toBe(configPath);
@@ -55,7 +48,7 @@ describe("resolveConfigPath()", () => {
     const dir = makeTmpDir();
     try {
       expect(() => resolveConfigPath(dir, "nonexistent.json")).toThrow(
-        /Configuration file not found/
+        /Configuration file not found/,
       );
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -73,7 +66,7 @@ describe("loadConfig() — JSON", () => {
           baseUrl: "http://localhost:3000",
           pages: [{ path: "/" }],
           output: [{ format: "json", path: "./report.json" }],
-        })
+        }),
       );
       const config = await loadConfig(dir);
       expect(config.baseUrl).toBe("http://localhost:3000");
@@ -86,10 +79,7 @@ describe("loadConfig() — JSON", () => {
   it("throws on invalid config (missing required fields)", async () => {
     const dir = makeTmpDir();
     try {
-      writeFileSync(
-        join(dir, "rgaa.config.json"),
-        JSON.stringify({ baseUrl: "http://x" })
-      );
+      writeFileSync(join(dir, "rgaa.config.json"), JSON.stringify({ baseUrl: "http://x" }));
       await expect(loadConfig(dir)).rejects.toThrow(/Invalid configuration/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -111,9 +101,7 @@ describe("loadConfig() — JSON", () => {
       // The config loads without error (Zod strips unknown keys)
       expect(config.baseUrl).toBe("http://localhost:3000");
       // Object.prototype must NOT be polluted
-      expect(
-        (Object.prototype as Record<string, unknown>).polluted
-      ).toBeUndefined();
+      expect((Object.prototype as Record<string, unknown>).polluted).toBeUndefined();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -139,9 +127,7 @@ describe("loadConfig() — JSON", () => {
   it("throws when no config file is found", async () => {
     const dir = makeTmpDir();
     try {
-      await expect(loadConfig(dir)).rejects.toThrow(
-        /No configuration file found/
-      );
+      await expect(loadConfig(dir)).rejects.toThrow(/No configuration file found/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -195,7 +181,7 @@ describe("loadConfig() — JS/MJS formats", () => {
           baseUrl: "http://localhost:3000",
           pages: [{ path: "/" }],
           output: [{ format: "json", path: "./report.json" }],
-        })};`
+        })};`,
       );
       const config = await loadConfig(dir);
       expect(config.baseUrl).toBe("http://localhost:3000");
@@ -214,7 +200,7 @@ describe("loadConfig() — JS/MJS formats", () => {
           baseUrl: "http://localhost:4000",
           pages: [{ path: "/home" }],
           output: [{ format: "html", path: "./report.html" }],
-        })};`
+        })};`,
       );
       const config = await loadConfig(dir);
       expect(config.baseUrl).toBe("http://localhost:4000");
@@ -229,7 +215,7 @@ describe("loadConfig() — JS/MJS formats", () => {
     try {
       writeFileSync(
         join(dir, "rgaa.config.js"),
-        `export default { baseUrl: "http://x" };` // missing pages and output
+        `export default { baseUrl: "http://x" };`, // missing pages and output
       );
       await expect(loadConfig(dir)).rejects.toThrow(/Invalid configuration/);
     } finally {

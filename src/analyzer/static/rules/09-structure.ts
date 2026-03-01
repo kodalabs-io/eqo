@@ -51,7 +51,7 @@ const headingHierarchy = defineRule(
             testId: "9.1.3",
             messageKey: "heading.multiple-h1",
             wcag: "1.3.1",
-          })
+          }),
         );
       }
     }
@@ -75,13 +75,13 @@ const headingHierarchy = defineRule(
             messageKey: "heading.skipped-level",
             wcag: "1.3.1",
             messageContext: { from: String(prevLevel), to: String(currLevel) },
-          })
+          }),
         );
       }
     }
 
     return issues;
-  }
+  },
 );
 
 // ─── Rule: lists must be properly structured (Criterion 9.3) ─────────────────
@@ -127,7 +127,7 @@ const listsProperlyStructured = defineRule(
                 messageKey: "list.invalid-child",
                 wcag: "1.3.1",
                 messageContext: { parent: tag, child: childTag },
-              })
+              }),
             );
           }
         }
@@ -135,7 +135,7 @@ const listsProperlyStructured = defineRule(
     });
 
     return issues;
-  }
+  },
 );
 
 export const structureRules = [headingHierarchy, listsProperlyStructured];

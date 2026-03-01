@@ -15,9 +15,7 @@ beforeAll(async () => {
   await loadTranslations("en-US");
 });
 
-async function generateSarif(
-  report: RGAAReport
-): Promise<Record<string, unknown>> {
+async function generateSarif(report: RGAAReport): Promise<Record<string, unknown>> {
   const outPath = path.join(tmpdir(), `koda-test-${Date.now()}.sarif`);
   await writeSarifReport(report, { format: "sarif", path: outPath });
   const content = await readFile(outPath, "utf-8");
@@ -71,9 +69,7 @@ describe("writeSarifReport()", () => {
       remediationKey: "img.missing-alt",
       wcag: "1.1.1",
     };
-    const sarif = await generateSarif(
-      createMockReport({ issues: [issueNoLocation] })
-    );
+    const sarif = await generateSarif(createMockReport({ issues: [issueNoLocation] }));
     const runs = sarif.runs as Array<Record<string, unknown>>;
     const results = runs[0]?.results as Array<Record<string, unknown>>;
     const result = results[0]!;
@@ -117,9 +113,7 @@ describe("writeSarifReport()", () => {
       remediationKey: "unknown-rule",
       wcag: "",
     };
-    const sarif = await generateSarif(
-      createMockReport({ issues: [unknownIssue] })
-    );
+    const sarif = await generateSarif(createMockReport({ issues: [unknownIssue] }));
     const runs = sarif.runs as Array<Record<string, unknown>>;
     const results = runs[0]?.results as Array<Record<string, unknown>>;
     // Issue with criterionId 'unknown' should be filtered out

@@ -95,9 +95,7 @@ describe("buildReport()", () => {
       },
     ];
     const report = buildReport(issues, [], baseConfig);
-    const c11 = report.themes
-      .find((t) => t.id === 1)
-      ?.criteriaResults.find((c) => c.id === "1.1");
+    const c11 = report.themes.find((t) => t.id === 1)?.criteriaResults.find((c) => c.id === "1.1");
     expect(c11?.issueCount).toBe(3);
     expect(c11?.status).toBe("invalidated");
   });

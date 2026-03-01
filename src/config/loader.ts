@@ -16,10 +16,7 @@ const CONFIG_FILE_NAMES = [
  * Resolve the configuration file path.
  * Returns null if no config file is found.
  */
-export function resolveConfigPath(
-  cwd: string,
-  explicitPath?: string
-): string | null {
+export function resolveConfigPath(cwd: string, explicitPath?: string): string | null {
   if (explicitPath) {
     const resolved = path.resolve(cwd, explicitPath);
     if (!existsSync(resolved)) {
@@ -29,9 +26,7 @@ export function resolveConfigPath(
     const real = realpathSync(resolved);
     const realCwd = realpathSync(cwd);
     if (!real.startsWith(realCwd + path.sep) && real !== realCwd) {
-      throw new ConfigError(
-        `Config path must be within project directory: ${explicitPath}`
-      );
+      throw new ConfigError(`Config path must be within project directory: ${explicitPath}`);
     }
     return real;
   }
@@ -53,14 +48,14 @@ export function resolveConfigPath(
  */
 export async function loadConfig(
   cwd = process.cwd(),
-  explicitPath?: string
+  explicitPath?: string,
 ): Promise<KodaRGAAConfig> {
   const configPath = resolveConfigPath(cwd, explicitPath);
 
   if (!configPath) {
     throw new ConfigError(
       "No configuration file found. " +
-        "Run `eqo init` to create one, or specify the path with --config."
+        "Run `eqo init` to create one, or specify the path with --config.",
     );
   }
 
@@ -85,7 +80,7 @@ export async function loadConfig(
       throw new ConfigError(
         "Loading .ts config files requires jiti.\n" +
           "Install it: npm install jiti\n" +
-          "Or use a .js / .mjs config file instead."
+          "Or use a .js / .mjs config file instead.",
       );
     }
     const jiti = createJiti(import.meta.url);
