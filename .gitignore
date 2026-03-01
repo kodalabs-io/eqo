@@ -42,6 +42,7 @@ __snapshots__/
 npm-debug.log*
 pnpm-debug.log*
 .npm
+.npmrc
 .eslintcache
 .stylelintcache
 .cache/

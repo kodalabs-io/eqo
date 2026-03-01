@@ -9,8 +9,8 @@ export default defineConfig({
     starlight({
       title: "Eqo",
       logo: {
-        light: "./public/eqo/light/primary.svg",
-        dark: "./public/eqo/dark/primary.svg",
+        light: "/eqo/light/primary.svg",
+        dark: "/eqo/dark/primary.svg",
         replacesTitle: true,
       },
       description:
