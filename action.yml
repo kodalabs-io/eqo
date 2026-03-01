@@ -1,4 +1,4 @@
-name: "RGAA Accessibility Audit"
+name: "kodalabs-io/eqo"
 description: "Analyze RGAA v4.1.2 accessibility compliance for NextJS projects"
 author: "Koda Labs"
 
